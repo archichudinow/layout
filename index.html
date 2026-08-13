@@ -5,23 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prompt Side Panel — Bookmarklet</title>
 <style>
-  :root{--bg:#0f1115;--card:#171a21;--bd:#262b36;--tx:#e7e9ee;--sub:#9aa3b2;--acc:#4f7cff;}
+  :root{--bg:#f7f7f8;--card:#ffffff;--bd:#e5e7eb;--tx:#1a1a1e;--sub:#6b7280;--acc:#2563eb;--code:#f3f4f6;}
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--tx);line-height:1.55}
   .wrap{max-width:720px;margin:0 auto;padding:48px 24px 80px}
   h1{font-size:26px;margin:0 0 6px}
   p.sub{color:var(--sub);margin:0 0 28px}
-  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:22px;margin:0 0 20px}
-  .drag{display:inline-block;background:var(--acc);color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;font-size:15px;cursor:grab}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:22px;margin:0 0 20px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .drag{display:inline-block;background:var(--acc);color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;font-size:15px;cursor:grab;box-shadow:0 1px 2px rgba(16,24,40,.10)}
   .drag:active{cursor:grabbing}
   ol{padding-left:20px}  li{margin:6px 0}
-  code{background:#0c0e12;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;font-size:13px}
-  textarea{width:100%;height:150px;background:#0c0e12;color:var(--sub);border:1px solid var(--bd);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
-  button.copy{margin-top:10px;background:#222836;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer}
+  code{background:var(--code);border:1px solid var(--bd);border-radius:6px;padding:1px 6px;font-size:13px}
+  textarea{width:100%;height:150px;background:var(--code);color:#4b5563;border:1px solid var(--bd);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;resize:vertical}
+  button.copy{margin-top:10px;background:#ffffff;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer}
+  button.copy:hover{background:#f3f4f6}
   h2{font-size:15px;margin:22px 0 8px}
   .muted{color:var(--sub);font-size:13px}
-  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px 22px;margin:0 0 20px}
-  .box.warn{border-left:3px solid #e0a23a}
+  .box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px 22px;margin:0 0 20px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .box.warn{border-left:3px solid #e0a23a;background:#fffdf7}
   .box h3{margin:0 0 6px;font-size:15px;font-weight:700}
   .small{font-size:13px;color:var(--sub);margin:0}
   .small + .small{margin-top:8px}
