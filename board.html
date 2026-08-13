@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Board</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --bd:#e5e7eb; --tx:#1a1a1e; --sub:#6b7280;
+    --acc:#2563eb; --acc-soft:#e8effe; --shadow:0 2px 10px rgba(16,24,40,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--tx);background:var(--bg);-webkit-user-select:none;user-select:none;touch-action:none}
+  #canvas{display:block;position:fixed;inset:0;background:
+    radial-gradient(circle, #d7dae1 1px, transparent 1px) 0 0/22px 22px, var(--bg);cursor:default}
+
+  .bar{position:fixed;z-index:10;display:flex;align-items:center;gap:6px;
+    background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);padding:6px}
+  #tools{top:14px;left:50%;transform:translateX(-50%)}
+  #left{top:14px;left:14px;gap:10px;padding:8px 12px;font-size:13px}
+  #right{top:14px;right:14px}
+  .btn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+    height:34px;min-width:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--tx);white-space:nowrap}
+  .btn:hover{background:#f1f2f4}
+  .btn.on{background:var(--acc-soft);color:var(--acc)}
+  .btn.primary{background:var(--acc);color:#fff}
+  .btn.primary:hover{background:#1d4fd7}
+  .btn svg{width:18px;height:18px;pointer-events:none}
+  .sep{width:1px;height:24px;background:var(--bd);margin:0 2px}
+  input[type=color]{width:30px;height:30px;border:none;background:none;padding:0;cursor:pointer;border-radius:8px}
+  input[type=range]{width:88px}
+  input[type=text]{border:1px solid var(--bd);border-radius:9px;padding:9px 11px;font-size:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#c7ccd4;flex:none}
+  .dot.live{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  #status{font-size:12px;color:var(--sub)}
+  #name{font-weight:600}
+  .chip{display:none;align-items:center;gap:7px;height:34px;padding:0 10px;border-radius:8px;
+    background:var(--acc-soft);color:var(--acc);font-size:13px;font-weight:600;cursor:pointer}
+  .chip .sw{width:10px;height:10px;border-radius:3px}
+  .hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:10;font-size:12px;color:var(--sub);
+    background:var(--panel);border:1px solid var(--bd);border-radius:999px;padding:6px 14px;box-shadow:var(--shadow)}
+  #peers{position:fixed;bottom:12px;right:12px;z-index:10;font-size:12px;color:var(--sub);
+    background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;box-shadow:var(--shadow);max-width:250px;display:none}
+  #peers b{color:var(--tx)}
+  #peers .pw{display:flex;align-items:center;gap:7px;margin-top:5px}
+  #peers .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  #peers .me{font-weight:600;color:var(--tx)}
+
+  .overlay{position:fixed;inset:0;z-index:50;background:rgba(17,24,39,.35);display:none;align-items:center;justify-content:center}
+  .modal{background:var(--panel);border:1px solid var(--bd);border-radius:16px;box-shadow:0 20px 60px rgba(16,24,40,.25);
+    width:min(94vw,470px);max-height:84vh;overflow:auto;padding:22px}
+  .modal h2{margin:0 0 4px;font-size:18px}
+  .modal p{margin:0 0 16px;color:var(--sub);font-size:13px}
+  .modal .row{display:flex;gap:8px}
+  .modal input[type=text]{flex:1}
+  .mnote{color:var(--sub);font-size:12px;margin:10px 0 0}
+  .linkbtn{all:unset;cursor:pointer;color:var(--acc);font-weight:600}
+  .linkbtn:hover{text-decoration:underline}
+  #modalfoot{margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);font-size:12px;color:var(--sub);
+    display:flex;justify-content:space-between;align-items:center;gap:10px}
+  #folderName{color:var(--tx)}
+  .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .slotcell{all:unset;border:1px solid var(--bd);border-radius:10px;padding:8px 9px;cursor:pointer;background:#fff;
+    min-height:54px;display:flex;flex-direction:column;gap:3px;box-sizing:border-box}
+  .slotcell:hover{border-color:var(--acc)}
+  .slotcell .n{font-size:11px;color:var(--sub)}
+  .slotcell .who{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slotcell .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .slotcell.busy{opacity:.6;cursor:not-allowed;background:#f9fafb}
+  .slotcell.you{border-color:var(--acc);background:var(--acc-soft)}
+  .slotcell.free .who{color:#3730a3}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="bar" id="left">
+  <span class="dot" id="syncdot"></span>
+  <span id="name">—</span>
+  <span id="status">not joined</span>
+</div>
+
+<div class="bar" id="tools">
+  <button class="btn on" data-tool="select" title="Select / move (V)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.5 18 2.6-7.9L21 10.5z"/></svg>
+  </button>
+  <button class="btn" data-tool="pen" title="Draw (P)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+  </button>
+  <button class="btn" data-tool="pan" title="Pan (hold Space)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0-2-2 2 2 0 0 0-2 2v0a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M14 10V4a2 2 0 0 1 4 0v6"/><path d="M6 14c-1.5-2-3-2.5-3-4a2 2 0 0 1 4 0"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-7-4l-2.5-4"/></svg>
+  </button>
+  <span class="sep"></span>
+  <input type="color" id="color" value="#111827" title="Colour">
+  <input type="range" id="width" min="1" max="24" value="3" title="Brush size">
+  <span class="sep"></span>
+  <button class="btn" id="addImg" title="Add image">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg>
+    Image
+  </button>
+  <button class="btn" id="del" title="Delete selected (Del)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+  </button>
+  <button class="btn" id="undo" title="Undo (Ctrl+Z)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+  </button>
+  <button class="btn" id="fit" title="Fit to content">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3m0-8V5a2 2 0 0 0-2-2h-3"/></svg>
+  </button>
+</div>
+
+<div class="bar" id="right">
+  <span class="chip" id="chanchip" title="Your seat — click to switch"><span class="sw"></span><span id="channame"></span></span>
+  <button class="btn" id="switchbtn" title="Pick or switch seat">Join board</button>
+</div>
+
+<div class="hint">Drop images anywhere · draw with the pen · scroll to zoom · Space-drag to pan</div>
+<div id="peers"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="mtitle">Join the board</h2>
+    <p id="mdesc">Select your project folder to begin.</p>
+    <div id="folderpick" style="display:none">
+      <button class="btn primary" id="pickfolder" style="justify-content:center;width:100%;height:44px;font-size:14px">Select project folder</button>
+      <p class="mnote">Everyone opens the <b>same</b> project folder. Images are saved in its <b>assets</b> subfolder, and 20 seat files are created so everyone shows up immediately. Chrome or Edge.</p>
+    </div>
+    <div id="slotwrap" style="display:none">
+      <div class="row" style="margin-bottom:12px">
+        <input type="text" id="nick" placeholder="Your nick" maxlength="24">
+        <button class="btn primary" id="joinfree">Join a seat</button>
+      </div>
+      <div class="slotgrid" id="slotgrid"></div>
+    </div>
+    <div id="modalfoot">
+      <span>Folder: <b id="folderName">none</b></span>
+      <button class="linkbtn" id="changefolder" style="display:none">Change folder</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImg" accept="image/*" multiple hidden>
+
+<script>
+(function(){
+  "use strict";
+  var canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
+  var dpr=1, W=0, H=0;
+  var SLOTS=20, TTL=8000;
+
+  var me = localStorage.getItem('lb_nick') || '';
+  var mySlot = localStorage.getItem('lb_slot') || '';   // 'slot-03.json'
+  document.getElementById('name').textContent = me || '—';
+
+  function uid(){ return Date.now().toString(36)+'-'+Math.floor(Math.random()*1e6).toString(36); }
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function slotName(i){ return 'slot-'+pad2(i)+'.json'; }
+  function slotNum(fn){ var m=(fn||'').match(/(\d+)/); return m?+m[1]:0; }
+  function hueColor(u){ u=u||'?'; var h=0; for(var i=0;i<u.length;i++) h=(h*31+u.charCodeAt(i))%360; return 'hsl('+h+' 65% 52%)'; }
+
+  // ---- state ------------------------------------------------------------
+  var mine=[];                 // objects of MY slot (authoritative in memory)
+  var others={};               // fileName -> { nick, objects } (read-only)
+  var slots={};                // fileName -> { slot, nick, seen, objects }
+  var view={ s:1, tx:0, ty:0 };
+  var tool='select', color='#111827', width=3, sel=null;
+  var imgCache={}, undoStack=[];
+  var dirHandle=null, assetsHandle=null, scanning=false, parsedCache={};
+
+  function allObjects(){ var out=mine.slice(); for(var fn in others) out=out.concat(others[fn].objects||[]); return out; }
+
+  // ---- IndexedDB (remember folder handle + local crash cache) -----------
+  var DB=null;
+  function idbOpen(){ return new Promise(function(res){ try{ var r=indexedDB.open('localboard',1);
+    r.onupgradeneeded=function(){ r.result.createObjectStore('kv'); };
+    r.onsuccess=function(){ DB=r.result; res(DB); }; r.onerror=function(){ res(null); }; }catch(e){ res(null); } }); }
+  function idbGet(k){ return new Promise(function(res){ if(!DB) return res(null); try{ var t=DB.transaction('kv','readonly').objectStore('kv').get(k); t.onsuccess=function(){ res(t.result||null); }; t.onerror=function(){ res(null); }; }catch(e){ res(null); } }); }
+  function idbSet(k,v){ return new Promise(function(res){ if(!DB) return res(); try{ var t=DB.transaction('kv','readwrite').objectStore('kv').put(v,k); t.onsuccess=function(){ res(); }; t.onerror=function(){ res(); }; }catch(e){ res(); } }); }
+  function saveLocal(){ idbSet('mine:'+(mySlot||'x'), mine); }
+
+  function snapshot(){ undoStack.push(JSON.stringify(mine)); if(undoStack.length>60) undoStack.shift(); }
+  function undo(){ if(!undoStack.length) return; mine=JSON.parse(undoStack.pop()); sel=null; commit(); }
+  function commit(){ saveLocal(); scheduleWrite(); render(); }
+
+  // ---- images as asset files -------------------------------------------
+  function fileToImage(file){ return new Promise(function(res,rej){ var r=new FileReader();
+    r.onload=function(){ var im=new Image(); im.onload=function(){ res(im); }; im.onerror=rej; im.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
+  function compress(img){ return new Promise(function(res){
+    var max=1600, sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+    var w=Math.max(1,Math.round(img.naturalWidth*sc)), h=Math.max(1,Math.round(img.naturalHeight*sc));
+    var c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+    c.toBlob(function(b){ if(b){ res({blob:b,w:w,h:h,ext:'webp'}); }
+      else c.toBlob(function(b2){ res({blob:b2,w:w,h:h,ext:'jpg'}); },'image/jpeg',0.85); },'image/webp',0.85);
+  }); }
+  function blobToDataURL(b){ return new Promise(function(res){ var r=new FileReader(); r.onload=function(){ res(r.result); }; r.readAsDataURL(b); }); }
+  async function writeAsset(name, blob){ if(!assetsHandle) return;
+    try{ var h=await assetsHandle.getFileHandle(name,{create:true}); var w=await h.createWritable(); await w.write(blob); await w.close(); }catch(e){ console.warn('asset write',e); } }
+  async function loadAsset(name, im){ if(!assetsHandle) return;
+    try{ var h=await assetsHandle.getFileHandle(name); var f=await h.getFile(); im.src=URL.createObjectURL(f); im.onload=render; }catch(e){} }
+  function getImg(key){ if(!key) return new Image(); if(imgCache[key]) return imgCache[key];
+    var im=new Image(); imgCache[key]=im;
+    if(/^data:/.test(key)){ im.src=key; im.onload=render; } else { loadAsset(key, im); }
+    return im; }
+  function imgKey(o){ return o.asset||o.src; }
+
+  async function addImageFile(file, atWorld){
+    try{
+      var img=await fileToImage(file), cmp=await compress(img);
+      var id=uid(), c=atWorld||toWorld(W/2,H/2), max=340, sc=Math.min(1,max/Math.max(cmp.w,cmp.h)), w=cmp.w*sc, h=cmp.h*sc;
+      var obj={ id:id, type:'image', x:c.x-w/2, y:c.y-h/2, w:w, h:h };
+      var im=new Image(); im.src=URL.createObjectURL(cmp.blob); im.onload=render;
+      if(assetsHandle){ var name=id+'.'+cmp.ext; obj.asset=name; imgCache[name]=im; writeAsset(name, cmp.blob); }
+      else { obj.src=await blobToDataURL(cmp.blob); imgCache[obj.src]=im; }
+      snapshot(); mine.push(obj); commit();
+    }catch(e){ console.warn('image failed', e); }
+  }
+
+  // ---- shared folder ----------------------------------------------------
+  var writeTimer=null, writing=false, writeAgain=false;
+  function scheduleWrite(){ if(!dirHandle||!mySlot) return; clearTimeout(writeTimer); writeTimer=setTimeout(writeMine, 500); }
+  async function writeMine(){
+    if(!dirHandle||!mySlot) return;
+    if(writing){ writeAgain=true; return; }
+    writing=true;
+    try{
+      var h=await dirHandle.getFileHandle(mySlot, {create:true}); var w=await h.createWritable();
+      await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:me, seen:Date.now(), objects:mine })],{type:'application/json'}));
+      await w.close();
+    }catch(e){ console.warn('write failed', e); }
+    finally{ writing=false; if(writeAgain){ writeAgain=false; writeMine(); } }
+  }
+  async function freeSeat(){   // keep drawings, clear presence so the seat frees now
+    if(!dirHandle||!mySlot) return;
+    try{ var h=await dirHandle.getFileHandle(mySlot,{create:true}); var w=await h.createWritable();
+      await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:'', seen:0, objects:mine })],{type:'application/json'})); await w.close(); }catch(e){}
+  }
+  async function readAll(){
+    var idx={};
+    for await (var entry of dirHandle.values()){
+      if(entry.kind!=='file') continue; var fn=entry.name, m=fn.match(/^slot-(\d+)\.json$/i); if(!m) continue;
+      try{
+        var f=await entry.getFile(), cached=parsedCache[fn];
+        if(cached && cached.lm===f.lastModified){ idx[fn]=cached.rec; continue; }
+        var d=JSON.parse(await f.text());
+        var rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
+        parsedCache[fn]={ lm:f.lastModified, rec:rec }; idx[fn]=rec;
+      }catch(e){ idx[fn]={ slot:+m[1], nick:'', seen:0, objects:[] }; }
+    }
+    slots=idx;
+    var o={}; for(var k in idx){ if(k!==mySlot) o[k]={ nick:idx[k].nick, objects:idx[k].objects }; } others=o;
+    return idx;
+  }
+  async function syncNow(){
+    if(!dirHandle||scanning) return; scanning=true;
+    try{ await readAll(); render(); updatePeers(); if(document.getElementById('overlay').style.display==='flex') renderPicker(); flashSync(); }
+    catch(e){ console.warn('sync failed', e); } finally{ scanning=false; }
+  }
+
+  // create the assets folder + 20 seat files if missing
+  async function initPool(){
+    try{ assetsHandle=await dirHandle.getDirectoryHandle('assets',{create:true}); }catch(e){ assetsHandle=null; }
+    var have={};
+    try{ for await (var e of dirHandle.values()){ if(e.kind==='file'){ var m=e.name.match(/^slot-(\d+)\.json$/i); if(m) have[+m[1]]=true; } } }catch(e){}
+    for(var i=1;i<=SLOTS;i++){ if(!have[i]){
+      try{ var h=await dirHandle.getFileHandle(slotName(i),{create:true}); var w=await h.createWritable();
+        await w.write(new Blob([JSON.stringify({ slot:i, nick:'', seen:0, objects:[] })],{type:'application/json'})); await w.close(); }catch(e){}
+    } }
+  }
+  async function afterFolder(){ await initPool(); await readAll(); renderPicker(); }
+
+  async function ensureFolder(){   // reuse remembered handle if still granted, else pick
+    var h=await idbGet('dirHandle');
+    if(h){ try{ var perm=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
+      if(perm!=='granted' && h.requestPermission) perm=await h.requestPermission({mode:'readwrite'});
+      if(perm==='granted'){ dirHandle=h; await afterFolder(); return; } }catch(e){} }
+    pickFolderFresh();
+  }
+  async function pickFolderFresh(){   // always show the OS folder picker
+    if(!window.showDirectoryPicker){ alert('Folder sync needs Chrome or Edge.'); return; }
+    try{
+      var d=await window.showDirectoryPicker({ mode:'readwrite', id:'localboard' });
+      if(d.requestPermission){ var p=await d.requestPermission({mode:'readwrite'}); if(p!=='granted') return; }
+      dirHandle=d; assetsHandle=null; idbSet('dirHandle', d);
+      parsedCache={}; slots={}; others={};
+      await afterFolder();
+    }catch(e){ /* cancelled */ }
+  }
+
+  // ---- join / seat ------------------------------------------------------
+  function isLive(fn){ var r=slots[fn]; return r && r.nick && (Date.now()-r.seen < TTL); }
+  function firstFree(){ for(var i=1;i<=SLOTS;i++){ var fn=slotName(i); if(!isLive(fn) || fn===mySlot) return fn; } return null; }
+
+  function joinSlot(fn){
+    if(mySlot && mySlot!==fn) freeSeat();
+    mySlot=fn; localStorage.setItem('lb_slot', fn); localStorage.setItem('lb_nick', me);
+    var rec=slots[fn]; mine = rec ? JSON.parse(JSON.stringify(rec.objects||[])) : [];
+    mine.forEach(function(o){ if(o.type==='image') getImg(imgKey(o)); });
+    undoStack=[]; sel=null;
+    var o={}; for(var k in slots){ if(k!==fn) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
+    updateChip(); document.getElementById('name').textContent=me;
+    saveLocal(); render(); updatePeers(); startSync(); closeModal();
+  }
+  function tryJoin(fn){
+    var n=(document.getElementById('nick').value||'').trim() || me;
+    if(!n){ document.getElementById('nick').focus(); return; }
+    me=n; localStorage.setItem('lb_nick', n);
+    if(isLive(fn) && fn!==mySlot){ alert('That seat is busy right now — pick a free one.'); return; }
+    joinSlot(fn);
+  }
+  function updateChip(){
+    var sw=document.querySelector('#chanchip .sw'); if(sw) sw.style.background=hueColor(me);
+    document.getElementById('channame').textContent='Seat '+slotNum(mySlot);
+    document.getElementById('chanchip').style.display='inline-flex';
+    document.getElementById('switchbtn').textContent='Switch seat';
+  }
+  function startSync(){
+    document.getElementById('syncdot').classList.add('live');
+    document.getElementById('status').textContent='seat '+slotNum(mySlot)+' · '+me;
+    if(!window._lbPoll) window._lbPoll=setInterval(syncNow, 1000);
+    if(!window._lbBeat) window._lbBeat=setInterval(writeMine, 3000);
+    writeMine();
+  }
+  function flashSync(){ var d=document.getElementById('syncdot'); d.style.transform='scale(1.5)'; setTimeout(function(){ d.style.transform='scale(1)'; },120); }
+
+  // ---- picker modal -----------------------------------------------------
+  function openSeatPicker(){
+    document.getElementById('nick').value=me;
+    document.getElementById('overlay').style.display='flex'; renderPicker();
+    if(!window._lbPick) window._lbPick=setInterval(function(){ if(dirHandle) readAll().then(renderPicker).catch(function(){}); }, 1500);
+  }
+  function closeModal(){ document.getElementById('overlay').style.display='none'; if(window._lbPick){ clearInterval(window._lbPick); window._lbPick=null; } }
+  function renderPicker(){
+    document.getElementById('folderName').textContent = dirHandle ? (dirHandle.name||'selected') : 'none';
+    document.getElementById('changefolder').style.display = dirHandle ? 'inline' : 'none';
+    var fp=document.getElementById('folderpick'), sw=document.getElementById('slotwrap');
+    if(!dirHandle){ fp.style.display='block'; sw.style.display='none';
+      document.getElementById('mtitle').textContent='Join the board';
+      document.getElementById('mdesc').textContent='First, everyone selects the same project folder.'; return; }
+    fp.style.display='none'; sw.style.display='block';
+    document.getElementById('mtitle').textContent='Enter your nick & take a seat';
+    document.getElementById('mdesc').textContent='Green seats are in use right now. Pick any free seat — when someone leaves, their seat frees up.';
+    var grid=document.getElementById('slotgrid'); grid.innerHTML='';
+    for(var i=1;i<=SLOTS;i++){ (function(i){
+      var fn=slotName(i), rec=slots[fn], live=isLive(fn), mineSlot=(fn===mySlot), busy=live&&!mineSlot;
+      var items=rec?(rec.objects||[]).length:0;
+      var who = live ? (rec.nick) : (items? items+' items' : 'free');
+      var cell=document.createElement('button'); cell.className='slotcell '+(busy?'busy':(mineSlot?'you':(live?'':'free'))); cell.disabled=!!busy;
+      cell.innerHTML='<span class="n">Seat '+i+'</span><span class="who">'+
+        ((live||mineSlot)?'<span class="sw" style="background:'+hueColor(rec.nick||me)+'"></span>':'')+
+        (mineSlot?'you':who)+'</span>';
+      if(!busy) cell.addEventListener('click', function(){ tryJoin(fn); });
+      grid.appendChild(cell);
+    })(i); }
+  }
+  document.getElementById('overlay').addEventListener('click', function(e){ if(e.target.id==='overlay' && mySlot) closeModal(); });
+  document.getElementById('pickfolder').addEventListener('click', ensureFolder);
+  document.getElementById('changefolder').addEventListener('click', pickFolderFresh);
+  document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 seats are busy right now.'); return; } tryJoin(fn); });
+  document.getElementById('nick').addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('joinfree').click(); } });
+
+  function updatePeers(){
+    var box=document.getElementById('peers');
+    if(!dirHandle){ box.style.display='none'; return; }
+    var live=[]; for(var fn in slots){ if(isLive(fn)) live.push(fn); }
+    if(mySlot && live.indexOf(mySlot)<0) live.push(mySlot);
+    live.sort(function(a,b){ return slotNum(a)-slotNum(b); });
+    var html='<b>'+live.length+'</b> here now';
+    live.forEach(function(fn){ var mineSeat=(fn===mySlot), nick=(slots[fn]&&slots[fn].nick)||(mineSeat?me:'');
+      html+='<div class="pw'+(mineSeat?' me':'')+'"><span class="sw" style="background:'+hueColor(nick)+'"></span>Seat '+slotNum(fn)+' · '+(nick||'?')+(mineSeat?' (you)':'')+'</div>'; });
+    box.innerHTML=html; box.style.display='block';
+  }
+
+  // ---- view / coords ----------------------------------------------------
+  function resize(){ dpr=window.devicePixelRatio||1; W=window.innerWidth; H=window.innerHeight;
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; render(); }
+  function toWorld(sx,sy){ return { x:(sx-view.tx)/view.s, y:(sy-view.ty)/view.s }; }
+  function evPos(e){ var r=canvas.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }
+  function bboxOf(o){ if(o.type==='image') return {x:o.x,y:o.y,w:o.w,h:o.h};
+    var xs=o.pts.map(function(p){return p[0];}), ys=o.pts.map(function(p){return p[1];});
+    var x=Math.min.apply(null,xs), y=Math.min.apply(null,ys); return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y}; }
+
+  // ---- render -----------------------------------------------------------
+  var cur=null;
+  function render(){
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+    ctx.save(); ctx.translate(view.tx,view.ty); ctx.scale(view.s,view.s);
+    var objs=allObjects();
+    objs.forEach(function(o){ if(o.type==='image'){ var im=getImg(imgKey(o)); if(im.complete&&im.naturalWidth) ctx.drawImage(im,o.x,o.y,o.w,o.h); } });
+    objs.forEach(function(o){ if(o.type==='stroke') drawStroke(o); });
+    if(cur) drawStroke(cur);
+    if(sel){ var b=bboxOf(sel); ctx.save(); ctx.strokeStyle='#2563eb'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
+      ctx.strokeRect(b.x-6/view.s,b.y-6/view.s,b.w+12/view.s,b.h+12/view.s); ctx.setLineDash([]);
+      if(sel.type==='image'){ ctx.fillStyle='#2563eb'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
+    ctx.restore();
+  }
+  function drawStroke(o){ if(!o.pts.length) return; ctx.save(); ctx.strokeStyle=o.color; ctx.lineWidth=o.width; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(o.pts[0][0],o.pts[0][1]); for(var i=1;i<o.pts.length;i++) ctx.lineTo(o.pts[i][0],o.pts[i][1]);
+    if(o.pts.length===1) ctx.lineTo(o.pts[0][0]+0.01,o.pts[0][1]+0.01); ctx.stroke(); ctx.restore(); }
+
+  // ---- hit testing (mine only) -----------------------------------------
+  function hitHandle(o,w){ if(!o||o.type!=='image') return false; var hs=10/view.s; return Math.abs(w.x-(o.x+o.w))<hs && Math.abs(w.y-(o.y+o.h))<hs; }
+  function hitTest(w){ for(var i=mine.length-1;i>=0;i--){ var o=mine[i];
+      if(o.type==='image'){ if(w.x>=o.x&&w.x<=o.x+o.w&&w.y>=o.y&&w.y<=o.y+o.h) return o; }
+      else { var tol=Math.max(8/view.s,o.width/2+4/view.s); for(var j=0;j<o.pts.length-1;j++){ if(segDist(w,o.pts[j],o.pts[j+1])<tol) return o; }
+        if(o.pts.length===1 && dist(w.x,w.y,o.pts[0][0],o.pts[0][1])<tol) return o; } } return null; }
+  function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
+  function segDist(p,a,b){ var vx=b[0]-a[0],vy=b[1]-a[1],wx=p.x-a[0],wy=p.y-a[1]; var c1=vx*wx+vy*wy; if(c1<=0) return dist(p.x,p.y,a[0],a[1]);
+    var c2=vx*vx+vy*vy; if(c2<=c1) return dist(p.x,p.y,b[0],b[1]); var t=c1/c2; return dist(p.x,p.y,a[0]+t*vx,a[1]+t*vy); }
+
+  // ---- pointer ----------------------------------------------------------
+  var mode=null,last=null,dragStart=null,spaceDown=false;
+  canvas.addEventListener('pointerdown', function(e){
+    canvas.setPointerCapture(e.pointerId);
+    var s=evPos(e), w=toWorld(s.x,s.y);
+    if(spaceDown||tool==='pan'||e.button===1){ mode='pan'; last=s; canvas.style.cursor='grabbing'; return; }
+    if(tool==='pen'){ if(!mySlot){ openSeatPicker(); return; } mode='draw'; cur={id:uid(),type:'stroke',color:color,width:width,pts:[[w.x,w.y]]}; return; }
+    if(sel&&hitHandle(sel,w)){ mode='resize'; snapshot(); dragStart={w:w,ow:sel.w,oh:sel.h}; return; }
+    var hit=hitTest(w);
+    if(hit){ sel=hit; mode='move'; snapshot(); dragStart={w:w}; render(); }
+    else { sel=null; mode='pan'; last=s; canvas.style.cursor='grabbing'; render(); }
+  });
+  canvas.addEventListener('pointermove', function(e){
+    var s=evPos(e), w=toWorld(s.x,s.y);
+    if(mode==='pan'){ view.tx+=s.x-last.x; view.ty+=s.y-last.y; last=s; render(); return; }
+    if(mode==='draw'){ var p=cur.pts[cur.pts.length-1]; if(dist(w.x,w.y,p[0],p[1])>1/view.s){ cur.pts.push([w.x,w.y]); render(); } return; }
+    if(mode==='move'&&sel){ var dx=w.x-dragStart.w.x, dy=w.y-dragStart.w.y; dragStart.w=w;
+      if(sel.type==='image'){ sel.x+=dx; sel.y+=dy; } else { sel.pts=sel.pts.map(function(p){return [p[0]+dx,p[1]+dy];}); } render(); return; }
+    if(mode==='resize'&&sel){ sel.w=Math.max(20,dragStart.ow+(w.x-dragStart.w.x)); sel.h=Math.max(20,dragStart.oh+(w.y-dragStart.w.y)); render(); return; }
+    if(tool==='select') canvas.style.cursor=hitTest(w)?'move':'default'; else if(tool==='pen') canvas.style.cursor='crosshair'; else canvas.style.cursor='grab';
+  });
+  function endPointer(e){ try{ canvas.releasePointerCapture(e.pointerId); }catch(_){}
+    if(mode==='draw'&&cur){ if(cur.pts.length>=1){ snapshot(); mine.push(cur); commit(); } cur=null; }
+    else if(mode==='move'||mode==='resize'){ commit(); } mode=null; canvas.style.cursor='default'; }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('wheel', function(e){ e.preventDefault(); var s=evPos(e); var factor=e.deltaY<0?1.1:1/1.1;
+    var ns=Math.min(8,Math.max(0.05,view.s*factor)); factor=ns/view.s; view.tx=s.x-(s.x-view.tx)*factor; view.ty=s.y-(s.y-view.ty)*factor; view.s=ns; render(); }, {passive:false});
+
+  // ---- images: drop / paste / button -----------------------------------
+  ['dragenter','dragover'].forEach(function(t){ window.addEventListener(t,function(e){ e.preventDefault(); }); });
+  window.addEventListener('drop', function(e){ e.preventDefault(); if(!mySlot){ openSeatPicker(); return; }
+    var s=evPos(e), w=toWorld(s.x,s.y), files=e.dataTransfer.files, off=0;
+    for(var i=0;i<files.length;i++){ if(/^image\//.test(files[i].type)){ addImageFile(files[i],{x:w.x+off,y:w.y+off}); off+=24; } } });
+  window.addEventListener('paste', function(e){ if(!mySlot) return; var items=e.clipboardData&&e.clipboardData.items; if(!items) return;
+    for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')===0){ var f=items[i].getAsFile(); if(f) addImageFile(f,null); } } });
+
+  function fit(){ var objs=allObjects(); if(!objs.length){ view={s:1,tx:0,ty:0}; render(); return; }
+    var b=bboxOf(objs[0]), minx=b.x,miny=b.y,maxx=b.x+b.w,maxy=b.y+b.h;
+    objs.forEach(function(o){ var bb=bboxOf(o); minx=Math.min(minx,bb.x); miny=Math.min(miny,bb.y); maxx=Math.max(maxx,bb.x+bb.w); maxy=Math.max(maxy,bb.y+bb.h); });
+    var pad=60, bw=Math.max(1,maxx-minx), bh=Math.max(1,maxy-miny); var s=Math.max(0.05,Math.min((W-2*pad)/bw,(H-2*pad)/bh,4));
+    view.s=s; view.tx=W/2-(minx+bw/2)*s; view.ty=H/2-(miny+bh/2)*s; render(); }
+
+  // ---- toolbar ----------------------------------------------------------
+  function setTool(t){ tool=t; if(t!=='select') sel=null;
+    [].forEach.call(document.querySelectorAll('[data-tool]'),function(b){ b.classList.toggle('on',b.dataset.tool===t); });
+    canvas.style.cursor=t==='pen'?'crosshair':(t==='pan'?'grab':'default'); render(); }
+  [].forEach.call(document.querySelectorAll('[data-tool]'),function(b){ b.addEventListener('click',function(){ setTool(b.dataset.tool); }); });
+  document.getElementById('color').addEventListener('input',function(e){ color=e.target.value; });
+  document.getElementById('width').addEventListener('input',function(e){ width=+e.target.value; });
+  document.getElementById('addImg').addEventListener('click',function(){ if(!mySlot){ openSeatPicker(); return; } document.getElementById('fileImg').click(); });
+  document.getElementById('fileImg').addEventListener('change',function(e){ [].forEach.call(e.target.files,function(f){ if(/^image\//.test(f.type)) addImageFile(f,null); }); e.target.value=''; });
+  document.getElementById('del').addEventListener('click',delSel);
+  document.getElementById('undo').addEventListener('click',undo);
+  document.getElementById('fit').addEventListener('click',fit);
+  document.getElementById('switchbtn').addEventListener('click', openSeatPicker);
+  document.getElementById('chanchip').addEventListener('click', openSeatPicker);
+  function delSel(){ if(sel){ snapshot(); var i=mine.indexOf(sel); if(i>=0) mine.splice(i,1); sel=null; commit(); } }
+
+  // ---- keyboard ---------------------------------------------------------
+  window.addEventListener('keydown',function(e){
+    if(e.code==='Space'){ spaceDown=true; if(mode!=='draw') canvas.style.cursor='grab'; }
+    if(e.target.tagName==='INPUT') return;
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); }
+    else if(e.key==='Delete'||e.key==='Backspace'){ if(sel){ e.preventDefault(); delSel(); } }
+    else if(e.key==='v'||e.key==='V'){ setTool('select'); }
+    else if(e.key==='p'||e.key==='P'){ setTool('pen'); }
+    else if(e.key==='h'||e.key==='H'){ setTool('pan'); }
+  });
+  window.addEventListener('keyup',function(e){ if(e.code==='Space'){ spaceDown=false; if(tool!=='pan') canvas.style.cursor='default'; } });
+  window.addEventListener('resize',resize);
+  window.addEventListener('pagehide', function(){ if(window._lbBeat){ clearInterval(window._lbBeat); window._lbBeat=null; } freeSeat(); });
+
+  // ---- boot -------------------------------------------------------------
+  (async function(){
+    await idbOpen(); resize(); updatePeers();
+    try{
+      var h=await idbGet('dirHandle');
+      if(h){ var perm=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
+        if(perm==='granted'){ dirHandle=h; try{ await initPool(); await readAll(); }catch(e){} } }
+    }catch(e){}
+    openSeatPicker();
+  })();
+})();
+</script>
+</body>
+</html>
