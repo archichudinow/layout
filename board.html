@@ -357,17 +357,23 @@
       document.getElementById('mdesc').textContent='First, everyone selects the same project folder.'; return; }
     fp.style.display='none'; sw.style.display='block';
     document.getElementById('mtitle').textContent='Enter your nick & take a seat';
-    document.getElementById('mdesc').textContent='Green seats are in use right now. Pick any free seat — when someone leaves, their seat frees up.';
+    document.getElementById('mdesc').textContent='Seats with a name are taken. Pick a free one. A taken seat that goes idle can be taken over.';
     var grid=document.getElementById('slotgrid'); grid.innerHTML='';
+    var IDLE=60000;
     for(var i=1;i<=SLOTS;i++){ (function(i){
-      var fn=slotName(i), rec=slots[fn], live=isLive(fn), mineSlot=(fn===mySlot), busy=live&&!mineSlot;
-      var items=rec?(rec.objects||[]).length:0;
-      var who = live ? (rec.nick) : (items? items+' items' : 'free');
-      var cell=document.createElement('button'); cell.className='slotcell '+(busy?'busy':(mineSlot?'you':(live?'':'free'))); cell.disabled=!!busy;
-      cell.innerHTML='<span class="n">Seat '+i+'</span><span class="who">'+
-        ((live||mineSlot)?'<span class="sw" style="background:'+hueColor(rec.nick||me)+'"></span>':'')+
-        (mineSlot?'you':who)+'</span>';
-      if(!busy) cell.addEventListener('click', function(){ tryJoin(fn); });
+      var fn=slotName(i), rec=slots[fn]||{nick:'',objects:[]}, mineSlot=(fn===mySlot);
+      var claimed=!!rec.nick, live=isLive(fn), items=(rec.objects||[]).length;
+      var o=observed[fn], idle = claimed && !live && o && (Date.now()-o.at > IDLE);   // claimed but no heartbeat movement for a while
+      var busy = claimed && !mineSlot && !idle;   // occupancy comes from the nick, not the fragile "live" check
+      var cls, label;
+      if(mineSlot){ cls='you'; label='you'; }
+      else if(busy){ cls='busy'; label=rec.nick; }
+      else if(idle){ cls='free'; label=rec.nick+' · idle, take over'; }
+      else { cls='free'; label=(items?items+' items':'free'); }
+      var cell=document.createElement('button'); cell.className='slotcell '+cls; cell.disabled=!!busy;
+      cell.innerHTML='<span class="n">Seat '+i+(live&&!mineSlot?' •':'')+'</span><span class="who">'+
+        ((claimed||mineSlot)?'<span class="sw" style="background:'+hueColor(rec.nick||me)+'"></span>':'')+label+'</span>';
+      if(!busy) cell.addEventListener('click', function(){ if(idle && !confirm('Seat '+i+' was used by "'+rec.nick+'" but looks idle. Take it over?')) return; tryJoin(fn); });
       grid.appendChild(cell);
     })(i); }
   }
@@ -380,12 +386,12 @@
   function updatePeers(){
     var box=document.getElementById('peers');
     if(!dirHandle){ box.style.display='none'; return; }
-    var live=[]; for(var fn in slots){ if(isLive(fn)) live.push(fn); }
-    if(mySlot && live.indexOf(mySlot)<0) live.push(mySlot);
-    live.sort(function(a,b){ return slotNum(a)-slotNum(b); });
-    var html='<b>'+live.length+'</b> here now';
-    live.forEach(function(fn){ var mineSeat=(fn===mySlot), nick=(slots[fn]&&slots[fn].nick)||(mineSeat?me:'');
-      html+='<div class="pw'+(mineSeat?' me':'')+'"><span class="sw" style="background:'+hueColor(nick)+'"></span>Seat '+slotNum(fn)+' · '+(nick||'?')+(mineSeat?' (you)':'')+'</div>'; });
+    var seats=[]; for(var fn in slots){ if(slots[fn].nick || fn===mySlot) seats.push(fn); }
+    seats.sort(function(a,b){ return slotNum(a)-slotNum(b); });
+    if(!seats.length){ box.style.display='none'; return; }
+    var html='<b>'+seats.length+'</b> on this board';
+    seats.forEach(function(fn){ var mineSeat=(fn===mySlot), nick=(slots[fn]&&slots[fn].nick)||(mineSeat?me:'?'), live=isLive(fn)||mineSeat;
+      html+='<div class="pw'+(mineSeat?' me':'')+'"><span class="sw" style="background:'+hueColor(nick)+';opacity:'+(live?1:.4)+'"></span>Seat '+slotNum(fn)+' · '+nick+(mineSeat?' (you)':(live?'':' · idle'))+'</div>'; });
     box.innerHTML=html; box.style.display='block';
   }
 
