@@ -278,15 +278,24 @@
     d.textContent='slots '+n+' · live '+live+' · mine '+mine.length+'it · others '+oth+'it · read '+age(lastReadAt)+(lastReadErr?(' ERR '+lastReadErr):'')+' · write '+(lastWrite.ok?'ok':('ERR '+(lastWrite.e||'')))+' '+age(lastWrite.t);
   }
 
-  // create the assets folder + 20 seat files if missing
+  // Create the assets folder + any missing seat files — WITHOUT ever overwriting
+  // an existing one. Never trust the directory listing (a network share can serve
+  // a stale listing that hides existing slots); check each file individually, and
+  // even after a create, only write the skeleton if the file is truly empty.
   async function initPool(){
     try{ assetsHandle=await dirHandle.getDirectoryHandle('assets',{create:true}); }catch(e){ assetsHandle=null; }
-    var have={};
-    try{ for await (var e of dirHandle.values()){ if(e.kind==='file'){ var m=e.name.match(/^slot-(\d+)\.json$/i); if(m) have[+m[1]]=true; } } }catch(e){}
-    for(var i=1;i<=SLOTS;i++){ if(!have[i]){
-      try{ var h=await dirHandle.getFileHandle(slotName(i),{create:true}); var w=await h.createWritable();
-        await w.write(new Blob([JSON.stringify({ slot:i, nick:'', seen:0, objects:[] })],{type:'application/json'})); await w.close(); }catch(e){}
-    } }
+    for(var i=1;i<=SLOTS;i++){
+      try{
+        var h;
+        try{ h=await dirHandle.getFileHandle(slotName(i)); }               // exists → never touch it
+        catch(nf){ h=await dirHandle.getFileHandle(slotName(i),{create:true}); }
+        var f=await h.getFile();
+        if(f.size>2) continue;                                            // has content → leave it alone
+        var w=await h.createWritable();
+        await w.write(new Blob([JSON.stringify({ slot:i, nick:'', seen:0, objects:[] })],{type:'application/json'}));
+        await w.close();
+      }catch(e){}
+    }
   }
   async function afterFolder(){ await initPool(); await readAll(); renderPicker(); }
 
@@ -313,10 +322,16 @@
     return !!(o && o.live && o.nick && o.seen>0 && (Date.now()-o.at < TTL)); }
   function firstFree(){ for(var i=1;i<=SLOTS;i++){ var fn=slotName(i); if(!isLive(fn) || fn===mySlot) return fn; } return null; }
 
-  function joinSlot(fn){
+  async function joinSlot(fn){
     if(mySlot && mySlot!==fn) freeSeat();
     mySlot=fn; localStorage.setItem('lb_slot', fn); localStorage.setItem('lb_nick', me);
-    var rec=slots[fn]; mine = rec ? JSON.parse(JSON.stringify(rec.objects||[])) : [];
+    // Re-read the slot file fresh at the moment of joining, so we never adopt a
+    // stale-empty cached copy and then write it back over the seat's real history.
+    var objs=null;
+    try{ var h=await dirHandle.getFileHandle(fn); var f=await h.getFile(); var d=JSON.parse(await f.text());
+      if(Array.isArray(d.objects)) objs=d.objects; }catch(e){}
+    if(!objs){ var rec=slots[fn]; objs = rec ? (rec.objects||[]) : []; }
+    mine = JSON.parse(JSON.stringify(objs));
     mine.forEach(function(o){ if(o.type==='image') getImg(imgKey(o)); });
     undoStack=[]; sel=null;
     var o={}; for(var k in slots){ if(k!==fn) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
