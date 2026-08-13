@@ -241,23 +241,25 @@
       await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:'', seen:0, objects:mine })],{type:'application/json'})); await w.close(); }catch(e){}
   }
   async function readAll(){
-    var idx={}, now=Date.now();
+    var now=Date.now();   // slots is persistent: we merge good reads in, never wipe on a bad/stale one
     for await (var entry of dirHandle.values()){
       if(entry.kind!=='file') continue; var fn=entry.name, m=fn.match(/^slot-(\d+)\.json$/i); if(!m) continue;
       var rec;
       try{ var f=await entry.getFile(); var d=JSON.parse(await f.text());
         rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
-      }catch(e){ rec={ slot:+m[1], nick:'', seen:0, objects:[] }; }
-      idx[fn]=rec;
-      // presence on OUR clock: a seat is live only once we *witness* its heartbeat change,
+      }catch(e){ continue; }   // partial / mid-write read: keep the last good copy (prevents flicker)
+      var prev=slots[fn];
+      // a share's cache can replay an OLDER version of a file; ignore backwards updates
+      if(prev && prev.seen>0 && rec.seen>0 && rec.seen < prev.seen) continue;
+      slots[fn]=rec;
+      // presence on OUR clock: a seat is "live" only once we witness its heartbeat change,
       // so cross-machine clock differences can't make a live user look offline (or vice-versa).
-      var prev=observed[fn];
-      if(!prev){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:false }; }
-      else if(prev.seen!==rec.seen || prev.nick!==rec.nick){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:true }; }
+      var po=observed[fn];
+      if(!po){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:false }; }
+      else if(po.seen!==rec.seen || po.nick!==rec.nick){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:true }; }
     }
-    slots=idx;
-    var o={}; for(var k in idx){ if(k!==mySlot) o[k]={ nick:idx[k].nick, objects:idx[k].objects }; } others=o;
-    return idx;
+    var o={}; for(var k in slots){ if(k!==mySlot) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
+    return slots;
   }
   async function syncNow(){
     if(!dirHandle) return;
