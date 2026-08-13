@@ -8,13 +8,19 @@
   :root{
     --bg:#f4f5f7; --panel:#ffffff; --bd:#e5e7eb; --tx:#1a1a1e; --sub:#6b7280;
     --acc:#2563eb; --acc-soft:#e8effe; --shadow:0 2px 10px rgba(16,24,40,.10);
+    --dotgrid:#d7dae1; --hover:#f1f2f4; --cell:#ffffff; --cellbusy:#f9fafb; --freetx:#3730a3;
+  }
+  [data-theme="dark"]{
+    --bg:#15171c; --panel:#1f232b; --bd:#333a45; --tx:#e6e8ec; --sub:#9aa3b2;
+    --acc:#5b8cff; --acc-soft:#26314a; --shadow:0 2px 10px rgba(0,0,0,.45);
+    --dotgrid:#262b34; --hover:#2a303a; --cell:#232833; --cellbusy:#1c2129; --freetx:#a5b4fc;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:var(--tx);background:var(--bg);-webkit-user-select:none;user-select:none;touch-action:none}
   #canvas{display:block;position:fixed;inset:0;background:
-    radial-gradient(circle, #d7dae1 1px, transparent 1px) 0 0/22px 22px, var(--bg);cursor:default}
+    radial-gradient(circle, var(--dotgrid) 1px, transparent 1px) 0 0/22px 22px, var(--bg);cursor:default}
 
   .bar{position:fixed;z-index:10;display:flex;align-items:center;gap:6px;
     background:var(--panel);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow);padding:6px}
@@ -23,7 +29,7 @@
   #right{top:14px;right:14px}
   .btn{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
     height:34px;min-width:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--tx);white-space:nowrap}
-  .btn:hover{background:#f1f2f4}
+  .btn:hover{background:var(--hover)}
   .btn.on{background:var(--acc-soft);color:var(--acc)}
   .btn.primary{background:var(--acc);color:#fff}
   .btn.primary:hover{background:#1d4fd7}
@@ -67,15 +73,15 @@
     display:flex;justify-content:space-between;align-items:center;gap:10px}
   #folderName{color:var(--tx)}
   .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .slotcell{all:unset;border:1px solid var(--bd);border-radius:10px;padding:8px 9px;cursor:pointer;background:#fff;
+  .slotcell{all:unset;border:1px solid var(--bd);border-radius:10px;padding:8px 9px;cursor:pointer;background:var(--cell);
     min-height:54px;display:flex;flex-direction:column;gap:3px;box-sizing:border-box}
   .slotcell:hover{border-color:var(--acc)}
   .slotcell .n{font-size:11px;color:var(--sub)}
   .slotcell .who{font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .slotcell .sw{width:9px;height:9px;border-radius:3px;flex:none}
-  .slotcell.busy{opacity:.6;cursor:not-allowed;background:#f9fafb}
+  .slotcell.busy{opacity:.6;cursor:not-allowed;background:var(--cellbusy)}
   .slotcell.you{border-color:var(--acc);background:var(--acc-soft)}
-  .slotcell.free .who{color:#3730a3}
+  .slotcell.free .who{color:var(--freetx)}
 </style>
 </head>
 <body>
@@ -83,6 +89,7 @@
 
 <div class="bar" id="left">
   <span class="dot" id="syncdot"></span>
+  <span id="proj" style="font-weight:700;display:none"></span>
   <span id="name">—</span>
   <span id="status">not joined</span>
 </div>
@@ -93,6 +100,9 @@
   </button>
   <button class="btn" data-tool="pen" title="Draw (P)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+  </button>
+  <button class="btn" data-tool="note" title="Sticky note (N)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l7-7V5a2 2 0 0 0-2-2z"/><path d="M14 21v-5a2 2 0 0 1 2-2h5"/></svg>
   </button>
   <button class="btn" data-tool="pan" title="Pan (hold Space)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0-2-2 2 2 0 0 0-2 2v0a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M14 10V4a2 2 0 0 1 4 0v6"/><path d="M6 14c-1.5-2-3-2.5-3-4a2 2 0 0 1 4 0"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-7-4l-2.5-4"/></svg>
@@ -118,7 +128,10 @@
 
 <div class="bar" id="right">
   <span class="chip" id="chanchip" title="Your seat — click to switch"><span class="sw"></span><span id="channame"></span></span>
-  <button class="btn" id="switchbtn" title="Pick or switch seat">Join board</button>
+  <button class="btn" id="homebtn" title="Boards — choose project folder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+  </button>
+  <button class="btn" id="themebtn" title="Dark / light mode"></button>
 </div>
 
 <div class="hint">Drop images anywhere · draw with the pen · scroll to zoom · Space-drag to pan</div>
@@ -131,9 +144,9 @@
     <h2 id="mtitle">Join the board</h2>
     <p id="mdesc">Select your project folder to begin.</p>
     <div id="folderpick" style="display:none">
-      <button class="btn primary" id="pickfolder" style="justify-content:center;width:100%;height:44px;font-size:14px">Join — select the project folder</button>
+      <button class="btn primary" id="pickfolder" style="justify-content:center;width:100%;height:44px;font-size:14px">JOIN THE POOL</button>
       <p class="mnote">Everyone opens the <b>same</b> project folder. If you’ve been here before, you’ll rejoin your seat automatically. Chrome or Edge.</p>
-      <p style="text-align:center;margin:10px 0 0"><button class="linkbtn" id="setuppool">Set up a new board in a folder…</button></p>
+      <p style="text-align:center;margin:10px 0 0"><button class="linkbtn" id="setuppool">create a new pool…</button></p>
     </div>
     <div id="slotwrap" style="display:none">
       <div class="row" style="margin-bottom:12px">
@@ -335,7 +348,7 @@
       }catch(e){}
     }
   }
-  async function afterFolder(){ await initPool(); await readAll(); if(await tryAutoRejoin()) return; renderPicker(); }
+  async function afterFolder(){ homeView=false; updateProj(); await initPool(); await readAll(); if(await tryAutoRejoin()) return; renderPicker(); }
   // Returning user: remembered nick + seat, and the seat isn't claimed by someone
   // else → rejoin silently with zero clicks. Otherwise fall through to the picker.
   async function tryAutoRejoin(){
@@ -411,7 +424,6 @@
     var sw=document.querySelector('#chanchip .sw'); if(sw) sw.style.background=hueColor(me);
     document.getElementById('channame').textContent='Seat '+slotNum(mySlot);
     document.getElementById('chanchip').style.display='inline-flex';
-    document.getElementById('switchbtn').textContent='Switch seat';
   }
   function startSync(){
     document.getElementById('syncdot').classList.add('live');
@@ -428,15 +440,16 @@
     document.getElementById('overlay').style.display='flex'; renderPicker();
     if(!window._lbPick) window._lbPick=setInterval(function(){ if(dirHandle) readAll().then(renderPicker).catch(function(){}); }, 1500);
   }
-  function closeModal(){ document.getElementById('overlay').style.display='none'; if(window._lbPick){ clearInterval(window._lbPick); window._lbPick=null; } }
+  function closeModal(){ homeView=false; document.getElementById('overlay').style.display='none'; if(window._lbPick){ clearInterval(window._lbPick); window._lbPick=null; } }
   function renderPicker(){
     document.getElementById('folderName').textContent = dirHandle ? (dirHandle.name||'selected') : 'none';
     document.getElementById('changefolder').style.display = dirHandle ? 'inline' : 'none';
     document.getElementById('mclose').style.display = mySlot ? 'block' : 'none';
     var fp=document.getElementById('folderpick'), sw=document.getElementById('slotwrap');
-    if(!dirHandle){ fp.style.display='block'; sw.style.display='none';
+    if(!dirHandle || homeView){ fp.style.display='block'; sw.style.display='none';
       document.getElementById('mtitle').textContent='Join the board';
-      document.getElementById('mdesc').textContent='Join the shared project folder — or set up a new board with the link below.'; return; }
+      document.getElementById('mtitle').textContent=homeView?'Pools':'Join the pool';
+      document.getElementById('mdesc').textContent='Everyone joins the same shared project folder (the pool).'; return; }
     fp.style.display='none'; sw.style.display='block';
     document.getElementById('mtitle').textContent='Enter your nick & take a seat';
     document.getElementById('mdesc').textContent='Seats with a name are taken. Pick a free one. A taken seat that goes idle can be taken over.';
@@ -469,7 +482,7 @@
   // Closing is explicit only (the ✕, shown once you have a seat) — a misclick on
   // the dark backdrop while typing a nick must not throw the user out.
   document.getElementById('mclose').addEventListener('click', function(){ if(mySlot) closeModal(); });
-  document.getElementById('pickfolder').addEventListener('click', ensureFolder);
+  document.getElementById('pickfolder').addEventListener('click', function(){ homeView?pickFolderFresh(false):ensureFolder(); });
   document.getElementById('setuppool').addEventListener('click', function(){ pickFolderFresh(true); });
   document.getElementById('changefolder').addEventListener('click', function(){ pickFolderFresh(false); });
   document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 seats are busy right now.'); return; } tryJoin(fn); });
@@ -492,7 +505,8 @@
     canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; render(); }
   function toWorld(sx,sy){ return { x:(sx-view.tx)/view.s, y:(sy-view.ty)/view.s }; }
   function evPos(e){ var r=canvas.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }
-  function bboxOf(o){ if(o.type==='image') return {x:o.x,y:o.y,w:o.w,h:o.h};
+  function isBoxObj(o){ return o && (o.type==='image'||o.type==='note'); }
+  function bboxOf(o){ if(isBoxObj(o)) return {x:o.x,y:o.y,w:o.w,h:o.h};
     var xs=o.pts.map(function(p){return p[0];}), ys=o.pts.map(function(p){return p[1];});
     var x=Math.min.apply(null,xs), y=Math.min.apply(null,ys); return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y}; }
 
@@ -503,21 +517,47 @@
     ctx.save(); ctx.translate(view.tx,view.ty); ctx.scale(view.s,view.s);
     var objs=allObjects();
     objs.forEach(function(o){ if(o.type==='image'){ var im=getImg(imgKey(o)); if(im.complete&&im.naturalWidth) ctx.drawImage(im,o.x,o.y,o.w,o.h); } });
+    objs.forEach(function(o){ if(o.type==='note') drawNote(o); });
     objs.forEach(function(o){ if(o.type==='stroke') drawStroke(o); });
     if(cur) drawStroke(cur);
     if(sel){ var b=bboxOf(sel); ctx.save(); ctx.strokeStyle='#2563eb'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
       ctx.strokeRect(b.x-6/view.s,b.y-6/view.s,b.w+12/view.s,b.h+12/view.s); ctx.setLineDash([]);
-      if(sel.type==='image'){ ctx.fillStyle='#2563eb'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
+      if(isBoxObj(sel)){ ctx.fillStyle='#2563eb'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
+    ctx.restore();
+    if(noteEd) styleNoteEd();   // keep the open note editor glued to its note on pan/zoom
+  }
+  function drawNote(o){
+    var hidden=(noteEdObj===o);   // the textarea covers it while editing
+    ctx.save();
+    ctx.fillStyle='rgba(16,24,40,.10)';
+    ctx.beginPath(); ctx.roundRect(o.x+3,o.y+4,o.w,o.h,6); ctx.fill();   // cheap drop shadow
+    ctx.fillStyle=o.color||'#FEF08A';
+    ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,6); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1/view.s; ctx.stroke();
+    if(o.text && !hidden){
+      ctx.beginPath(); ctx.rect(o.x+8,o.y+8,o.w-16,o.h-16); ctx.clip();
+      ctx.fillStyle='#1f2937'; ctx.font='13px ui-sans-serif,system-ui,sans-serif'; ctx.textBaseline='top';
+      var lh=17, ty=o.y+10, maxW=o.w-20;
+      o.text.split('\n').forEach(function(para){
+        var words=para.split(' '), line='';
+        for(var i=0;i<words.length;i++){
+          var test=line?line+' '+words[i]:words[i];
+          if(ctx.measureText(test).width>maxW && line){ ctx.fillText(line,o.x+10,ty); ty+=lh; line=words[i]; }
+          else line=test;
+        }
+        ctx.fillText(line,o.x+10,ty); ty+=lh;
+      });
+    }
     ctx.restore();
   }
-  function drawStroke(o){ if(!o.pts.length) return; ctx.save(); ctx.strokeStyle=o.color; ctx.lineWidth=o.width; ctx.lineCap='round'; ctx.lineJoin='round';
+  function drawStroke(o){ if(!o.pts.length) return; ctx.save(); ctx.strokeStyle=displayColor(o.color); ctx.lineWidth=o.width; ctx.lineCap='round'; ctx.lineJoin='round';
     ctx.beginPath(); ctx.moveTo(o.pts[0][0],o.pts[0][1]); for(var i=1;i<o.pts.length;i++) ctx.lineTo(o.pts[i][0],o.pts[i][1]);
     if(o.pts.length===1) ctx.lineTo(o.pts[0][0]+0.01,o.pts[0][1]+0.01); ctx.stroke(); ctx.restore(); }
 
   // ---- hit testing (mine only) -----------------------------------------
-  function hitHandle(o,w){ if(!o||o.type!=='image') return false; var hs=10/view.s; return Math.abs(w.x-(o.x+o.w))<hs && Math.abs(w.y-(o.y+o.h))<hs; }
+  function hitHandle(o,w){ if(!isBoxObj(o)) return false; var hs=10/view.s; return Math.abs(w.x-(o.x+o.w))<hs && Math.abs(w.y-(o.y+o.h))<hs; }
   function hitTest(w){ for(var i=mine.length-1;i>=0;i--){ var o=mine[i];
-      if(o.type==='image'){ if(w.x>=o.x&&w.x<=o.x+o.w&&w.y>=o.y&&w.y<=o.y+o.h) return o; }
+      if(isBoxObj(o)){ if(w.x>=o.x&&w.x<=o.x+o.w&&w.y>=o.y&&w.y<=o.y+o.h) return o; }
       else { var tol=Math.max(8/view.s,o.width/2+4/view.s); for(var j=0;j<o.pts.length-1;j++){ if(segDist(w,o.pts[j],o.pts[j+1])<tol) return o; }
         if(o.pts.length===1 && dist(w.x,w.y,o.pts[0][0],o.pts[0][1])<tol) return o; } } return null; }
   function dist(ax,ay,bx,by){ return Math.hypot(ax-bx,ay-by); }
@@ -531,6 +571,9 @@
     var s=evPos(e), w=toWorld(s.x,s.y);
     if(spaceDown||tool==='pan'||e.button===1){ mode='pan'; last=s; canvas.style.cursor='grabbing'; return; }
     if(tool==='pen'){ if(!mySlot){ openSeatPicker(); return; } mode='draw'; cur={id:uid(),type:'stroke',color:color,width:width,pts:[[w.x,w.y]]}; return; }
+    if(tool==='note'){ if(!mySlot){ openSeatPicker(); return; }
+      var note={ id:uid(), type:'note', x:w.x-85, y:w.y-60, w:170, h:120, text:'', color:STICKY[stickyIdx++%STICKY.length] };
+      snapshot(); mine.push(note); commit(); setTool('select'); sel=note; render(); openNoteEditor(note); return; }
     if(sel&&hitHandle(sel,w)){ mode='resize'; snapshot(); dragStart={w:w,ow:sel.w,oh:sel.h}; return; }
     var hit=hitTest(w);
     if(hit){ sel=hit; mode='move'; snapshot(); dragStart={w:w}; render(); }
@@ -541,7 +584,7 @@
     if(mode==='pan'){ view.tx+=s.x-last.x; view.ty+=s.y-last.y; last=s; render(); return; }
     if(mode==='draw'){ var p=cur.pts[cur.pts.length-1]; if(dist(w.x,w.y,p[0],p[1])>1/view.s){ cur.pts.push([w.x,w.y]); render(); } return; }
     if(mode==='move'&&sel){ var dx=w.x-dragStart.w.x, dy=w.y-dragStart.w.y; dragStart.w=w;
-      if(sel.type==='image'){ sel.x+=dx; sel.y+=dy; } else { sel.pts=sel.pts.map(function(p){return [p[0]+dx,p[1]+dy];}); } render(); return; }
+      if(isBoxObj(sel)){ sel.x+=dx; sel.y+=dy; } else { sel.pts=sel.pts.map(function(p){return [p[0]+dx,p[1]+dy];}); } render(); return; }
     if(mode==='resize'&&sel){ sel.w=Math.max(20,dragStart.ow+(w.x-dragStart.w.x)); sel.h=Math.max(20,dragStart.oh+(w.y-dragStart.w.y)); render(); return; }
     if(tool==='select') canvas.style.cursor=hitTest(w)?'move':'default'; else if(tool==='pen') canvas.style.cursor='crosshair'; else canvas.style.cursor='grab';
   });
@@ -550,6 +593,43 @@
     else if(mode==='move'||mode==='resize'){ commit(); } mode=null; canvas.style.cursor='default'; }
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('dblclick', function(e){
+    var s=evPos(e), w=toWorld(s.x,s.y), hit=hitTest(w);   // hitTest is mine-only: you edit your own notes
+    if(hit && hit.type==='note'){ sel=hit; render(); openNoteEditor(hit); }
+  });
+
+  // ---- sticky note editor ----------------------------------------------
+  var STICKY=['#FEF08A','#FECACA','#BBF7D0','#BFDBFE','#F5D0FE'], stickyIdx=0;
+  var noteEd=null, noteEdObj=null;
+  function openNoteEditor(o){
+    closeNoteEditor(true);
+    noteEdObj=o;
+    var t=document.createElement('textarea'); noteEd=t;
+    t.value=o.text||''; t.spellcheck=false; t.placeholder='Type…';
+    styleNoteEd(); document.body.appendChild(t); t.focus();
+    t.addEventListener('blur', function(){ closeNoteEditor(true); });
+    t.addEventListener('keydown', function(e){
+      if(e.key==='Escape'){ e.preventDefault(); closeNoteEditor(true); }
+      e.stopPropagation();   // keep board shortcuts (Delete, V/P/N…) out of typing
+    });
+    render();
+  }
+  function styleNoteEd(){
+    if(!noteEd||!noteEdObj) return; var o=noteEdObj;
+    noteEd.style.cssText='position:fixed;z-index:40;box-sizing:border-box;resize:none;outline:none;'+
+      'left:'+(o.x*view.s+view.tx)+'px;top:'+(o.y*view.s+view.ty)+'px;'+
+      'width:'+(o.w*view.s)+'px;height:'+(o.h*view.s)+'px;'+
+      'background:'+(o.color||'#FEF08A')+';color:#1f2937;'+
+      'border:1.5px solid rgba(0,0,0,.2);border-radius:'+(6*view.s)+'px;'+
+      'padding:'+(10*view.s)+'px;font:'+(13*view.s)+'px/'+(17*view.s)+'px ui-sans-serif,system-ui,sans-serif;'+
+      'box-shadow:0 8px 20px rgba(16,24,40,.22)';
+  }
+  function closeNoteEditor(commitIt){
+    if(!noteEd) return;
+    var t=noteEd, o=noteEdObj; noteEd=null; noteEdObj=null;
+    if(commitIt && o){ var v=t.value; if(v!==(o.text||'')){ snapshot(); o.text=v; commit(); } }
+    t.remove(); render();
+  }
   canvas.addEventListener('wheel', function(e){ e.preventDefault(); var s=evPos(e); var factor=e.deltaY<0?1.1:1/1.1;
     var ns=Math.min(8,Math.max(0.05,view.s*factor)); factor=ns/view.s; view.tx=s.x-(s.x-view.tx)*factor; view.ty=s.y-(s.y-view.ty)*factor; view.s=ns; render(); }, {passive:false});
 
@@ -572,6 +652,27 @@
     [].forEach.call(document.querySelectorAll('[data-tool]'),function(b){ b.classList.toggle('on',b.dataset.tool===t); });
     canvas.style.cursor=t==='pen'?'crosshair':(t==='pan'?'grab':'default'); render(); }
   [].forEach.call(document.querySelectorAll('[data-tool]'),function(b){ b.addEventListener('click',function(){ setTool(b.dataset.tool); }); });
+
+  // ---- theme ------------------------------------------------------------
+  var MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+  var SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/></svg>';
+  var theme=localStorage.getItem('lb_theme')||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
+  function applyTheme(){ document.documentElement.setAttribute('data-theme',theme);
+    document.getElementById('themebtn').innerHTML=(theme==='dark')?SUN:MOON; render(); }
+  document.getElementById('themebtn').addEventListener('click', function(){
+    theme=(theme==='dark')?'light':'dark'; localStorage.setItem('lb_theme',theme); applyTheme(); });
+  // Near-black ink is unreadable on the dark surface — brighten it at draw time
+  // only; the stored object keeps its true colour for everyone else.
+  function displayColor(c){ if(theme!=='dark') return c; var m=/^#([0-9a-f]{6})$/i.exec(c||''); if(!m) return c;
+    var n=parseInt(m[1],16), r=n>>16, g=(n>>8)&255, b=n&255;
+    return (0.2126*r+0.7152*g+0.0722*b)<60 ? '#e5e7eb' : c; }
+  applyTheme();
+
+  // ---- home (project select) & project name ------------------------------
+  var homeView=false;
+  function openHome(){ homeView=true; openSeatPicker(); }
+  function updateProj(){ var p=document.getElementById('proj'), n=dirHandle?(dirHandle.name||''):'';
+    p.textContent=n; p.style.display=n?'inline':'none'; document.title=n?(n+' — Local Board'):'Local Board'; }
   document.getElementById('color').addEventListener('input',function(e){ color=e.target.value; });
   document.getElementById('width').addEventListener('input',function(e){ width=+e.target.value; });
   document.getElementById('addImg').addEventListener('click',function(){ if(!mySlot){ openSeatPicker(); return; } document.getElementById('fileImg').click(); });
@@ -579,7 +680,7 @@
   document.getElementById('del').addEventListener('click',delSel);
   document.getElementById('undo').addEventListener('click',undo);
   document.getElementById('fit').addEventListener('click',fit);
-  document.getElementById('switchbtn').addEventListener('click', openSeatPicker);
+  document.getElementById('homebtn').addEventListener('click', openHome);
   document.getElementById('chanchip').addEventListener('click', openSeatPicker);
   function delSel(){ if(sel){ snapshot(); var i=mine.indexOf(sel); if(i>=0) mine.splice(i,1); sel=null; commit(); } }
 
@@ -591,6 +692,7 @@
     else if(e.key==='Delete'||e.key==='Backspace'){ if(sel){ e.preventDefault(); delSel(); } }
     else if(e.key==='v'||e.key==='V'){ setTool('select'); }
     else if(e.key==='p'||e.key==='P'){ setTool('pen'); }
+    else if(e.key==='n'||e.key==='N'){ setTool('note'); }
     else if(e.key==='h'||e.key==='H'){ setTool('pan'); }
   });
   window.addEventListener('keyup',function(e){ if(e.code==='Space'){ spaceDown=false; if(tool!=='pan') canvas.style.cursor='default'; } });
@@ -603,7 +705,7 @@
     try{
       var h=await idbGet('dirHandle');
       if(h){ var perm=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
-        if(perm==='granted'){ dirHandle=h; try{ await initPool(); await readAll(); }catch(e){}
+        if(perm==='granted'){ dirHandle=h; updateProj(); try{ await initPool(); await readAll(); }catch(e){}
           if(await tryAutoRejoin()) return; } }   // returning user: straight onto the board
     }catch(e){}
     openSeatPicker();
