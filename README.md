@@ -1,5 +1,13 @@
 # layout
 
+> **Educational / hobby demo — use at your own risk.** Provided as-is, with no
+> warranty of any kind. Not affiliated with, endorsed by, or supported by
+> ReImaginarium — The Tools. Like every bookmarklet, it runs with the full
+> privileges of whatever page it is open on — while running it can read and
+> change anything on that page. Only run bookmarklet code you have read and
+> trust. The author accepts no responsibility or liability for any use of, or
+> anything resulting from, this bookmarklet.
+
 ## Prompt Side Panel (bookmarklet)
 
 A floating, draggable side column for the **ReImaginarium — The Tools** page.
