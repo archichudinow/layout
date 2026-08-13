@@ -222,34 +222,57 @@
   }
 
   // ---- shared folder ----------------------------------------------------
-  var writeTimer=null, writing=false, writeAgain=false;
+  var writeTimer=null, writing=false, writeAgain=false, lastGen='', lastBaseWrite=0;
   function scheduleWrite(){ if(!dirHandle||!mySlot) return; clearTimeout(writeTimer); writeTimer=setTimeout(writeMine, 500); }
+  async function writeSlotFile(name, data){
+    var h=await dirHandle.getFileHandle(name,{create:true}); var w=await h.createWritable();
+    await w.write(new Blob([JSON.stringify(data)],{type:'application/json'})); await w.close();
+  }
+  // Delete this seat's generation files (except `keep`). Base slot file is never touched.
+  async function sweepGens(baseFn, keep){
+    try{ var pre=baseFn.replace(/\.json$/i,'')+'.';
+      var del=[]; for await (var e of dirHandle.values()){
+        if(e.kind==='file' && e.name!==baseFn && e.name!==keep && e.name.indexOf(pre)===0 && /\.json$/i.test(e.name)) del.push(e.name); }
+      for(var i=0;i<del.length;i++){ try{ await dirHandle.removeEntry(del[i]); }catch(e){} }
+    }catch(e){}
+  }
   async function writeMine(){
     if(!dirHandle||!mySlot) return;
     if(writing && Date.now()-writeStart < 15000){ writeAgain=true; return; }   // only block briefly; recover if a write hung
     writing=true; writeStart=Date.now();
     try{
-      var h=await dirHandle.getFileHandle(mySlot, {create:true}); var w=await h.createWritable();
-      await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:me, seen:Date.now(), objects:mine })],{type:'application/json'}));
-      await w.close(); lastWrite={t:Date.now(), ok:true};
+      var data={ slot:slotNum(mySlot), nick:me, seen:Date.now(), objects:mine };
+      // Each beat goes into a NEW generation file (slot-02.<ts>.json). The OS caches
+      // file CONTENT per name, so a reader machine can be handed stale bytes forever
+      // for a name it keeps re-reading — but never for a name it has never opened.
+      var gen=mySlot.replace(/\.json$/i,'')+'.'+data.seen+'.json';
+      await writeSlotFile(gen, data);
+      var old=lastGen; lastGen=gen;
+      if(old && old!==gen){ try{ await dirHandle.removeEntry(old); }catch(e){} }
+      // Refresh the durable base file only occasionally — it's the archive copy.
+      if(Date.now()-lastBaseWrite>10000){ await writeSlotFile(mySlot, data); lastBaseWrite=Date.now(); }
+      lastWrite={t:Date.now(), ok:true};
     }catch(e){ lastWrite={t:Date.now(), ok:false, e:(e&&e.name)||'err'}; console.warn('write failed', e); }
     finally{ writing=false; updateDbg(); if(writeAgain){ writeAgain=false; writeMine(); } }
   }
-  async function freeSeat(){   // keep drawings, clear presence so the seat frees now
-    if(!dirHandle||!mySlot) return;
-    try{ var h=await dirHandle.getFileHandle(mySlot,{create:true}); var w=await h.createWritable();
-      await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:'', seen:0, objects:mine })],{type:'application/json'})); await w.close(); }catch(e){}
+  async function freeSeat(seat){   // keep drawings, clear presence so the seat frees now
+    seat=seat||mySlot;   // capture: callers may reassign mySlot before our awaits run
+    if(!dirHandle||!seat) return;
+    try{ await writeSlotFile(seat, { slot:slotNum(seat), nick:'', seen:0, objects:mine }); }catch(e){}
+    lastGen=''; lastBaseWrite=0;
+    await sweepGens(seat, null);
   }
   async function readAll(){
     var now=Date.now();   // slots is persistent: we merge good reads in, never wipe on a bad/stale one
     for await (var entry of dirHandle.values()){
-      if(entry.kind!=='file') continue; var fn=entry.name, m=fn.match(/^slot-(\d+)\.json$/i); if(!m) continue;
+      if(entry.kind!=='file') continue; var raw=entry.name, m=raw.match(/^slot-(\d+)(?:\.(\d+))?\.json$/i); if(!m) continue;
+      var fn=slotName(+m[1]);   // base + generation files all merge into the canonical seat
       var rec;
       try{ var f=await entry.getFile(); var d=JSON.parse(await f.text());
         rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
-      }catch(e){ continue; }   // partial / mid-write read: keep the last good copy (prevents flicker)
+      }catch(e){ continue; }   // partial / mid-write / just-deleted read: keep the last good copy
       var prev=slots[fn];
-      // a share's cache can replay an OLDER version of a file; ignore backwards updates
+      // a share's cache can replay an OLDER version; ignore backwards updates
       if(prev && prev.seen>0 && rec.seen>0 && rec.seen < prev.seen) continue;
       slots[fn]=rec;
       // Optimistic presence on OUR clock: a claimed seat counts as online from the
@@ -323,15 +346,17 @@
   function firstFree(){ for(var i=1;i<=SLOTS;i++){ var fn=slotName(i); if(!isLive(fn) || fn===mySlot) return fn; } return null; }
 
   async function joinSlot(fn){
-    if(mySlot && mySlot!==fn) freeSeat();
+    if(mySlot && mySlot!==fn) freeSeat(mySlot);
     mySlot=fn; localStorage.setItem('lb_slot', fn); localStorage.setItem('lb_nick', me);
     // Re-read the slot file fresh at the moment of joining, so we never adopt a
     // stale-empty cached copy and then write it back over the seat's real history.
-    var objs=null;
+    // Take whichever is newest: the fresh base-file read or the merged view
+    // (which includes generation files).
+    var best=slots[fn]||null;
     try{ var h=await dirHandle.getFileHandle(fn); var f=await h.getFile(); var d=JSON.parse(await f.text());
-      if(Array.isArray(d.objects)) objs=d.objects; }catch(e){}
-    if(!objs){ var rec=slots[fn]; objs = rec ? (rec.objects||[]) : []; }
-    mine = JSON.parse(JSON.stringify(objs));
+      if(Array.isArray(d.objects) && (!best || (d.seen||0) >= (best.seen||0))) best={seen:d.seen||0, objects:d.objects}; }catch(e){}
+    mine = JSON.parse(JSON.stringify(best ? (best.objects||[]) : []));
+    sweepGens(fn, null);   // clear a previous occupant's leftover generation files
     mine.forEach(function(o){ if(o.type==='image') getImg(imgKey(o)); });
     undoStack=[]; sel=null;
     var o={}; for(var k in slots){ if(k!==fn) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
