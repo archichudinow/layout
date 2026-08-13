@@ -149,7 +149,7 @@
   "use strict";
   var canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
   var dpr=1, W=0, H=0;
-  var SLOTS=20, TTL=30000;   // presence window wide enough to survive bursty LAN/cloud propagation
+  var SLOTS=20, TTL=45000;   // online window: a seat stays "online" this long after we last saw its heartbeat move
 
   var me = localStorage.getItem('lb_nick') || '';
   var mySlot = localStorage.getItem('lb_slot') || '';   // 'slot-03.json'
@@ -252,11 +252,13 @@
       // a share's cache can replay an OLDER version of a file; ignore backwards updates
       if(prev && prev.seen>0 && rec.seen>0 && rec.seen < prev.seen) continue;
       slots[fn]=rec;
-      // presence on OUR clock: a seat is "live" only once we witness its heartbeat change,
-      // so cross-machine clock differences can't make a live user look offline (or vice-versa).
+      // Optimistic presence on OUR clock: a claimed seat counts as online from the
+      // moment we first read it, and stays online as long as we keep witnessing its
+      // heartbeat (seen) move. It goes offline only after TTL with no movement.
+      // Reader-side clocks only — immune to cross-machine clock skew.
       var po=observed[fn];
-      if(!po){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:false }; }
-      else if(po.seen!==rec.seen || po.nick!==rec.nick){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:true }; }
+      if(!po){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:(rec.nick?now:0), live:!!rec.nick }; }
+      else if(po.seen!==rec.seen || po.nick!==rec.nick){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:!!rec.nick }; }
     }
     var o={}; for(var k in slots){ if(k!==mySlot) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
     return slots;
