@@ -7,14 +7,14 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%232563eb'/%3E%3Cpath d='M12 38c5-6 11-6 16 0s11 6 16 0' stroke='white' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M12 48c5-6 11-6 16 0s11 6 16 0' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' opacity='.6'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#f2f3f4; --panel:#fbfbfc; --bd:#e3e4e7; --tx:#3f434a; --sub:#8b9099;
-    --acc:#5c6470; --acc-soft:#e9eaed; --shadow:0 2px 10px rgba(20,22,26,.06);
-    --dotgrid:#e2e3e6; --hover:#ececef; --cell:#f7f7f9; --cellbusy:#f0f1f2; --freetx:#6a707b;
+    --bg:#f2f2f2; --panel:#fafafa; --bd:#e3e3e3; --tx:#404040; --sub:#8f8f8f;
+    --acc:#616161; --acc-soft:#eaeaea; --shadow:0 2px 10px rgba(0,0,0,.06);
+    --dotgrid:#e2e2e2; --hover:#ececec; --cell:#f7f7f7; --cellbusy:#f0f0f0; --freetx:#6e6e6e;
   }
   [data-theme="dark"]{
-    --bg:#17191d; --panel:#1d2025; --bd:#282c33; --tx:#b9bec6; --sub:#767d88;
-    --acc:#8b939f; --acc-soft:#262a31; --shadow:0 2px 10px rgba(0,0,0,.3);
-    --dotgrid:#1f2227; --hover:#252930; --cell:#212429; --cellbusy:#1b1e23; --freetx:#8b939f;
+    --bg:#181818; --panel:#1f1f1f; --bd:#2b2b2b; --tx:#bdbdbd; --sub:#7a7a7a;
+    --acc:#939393; --acc-soft:#282828; --shadow:0 2px 10px rgba(0,0,0,.3);
+    --dotgrid:#202020; --hover:#272727; --cell:#232323; --cellbusy:#1c1c1c; --freetx:#909090;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;
@@ -39,7 +39,7 @@
   input[type=color]{width:30px;height:30px;border:none;background:none;padding:0;cursor:pointer;border-radius:8px}
   input[type=range]{width:88px}
   input[type=text]{border:1px solid var(--bd);border-radius:9px;padding:9px 11px;font-size:14px}
-  .dot{width:9px;height:9px;border-radius:50%;background:#c7ccd4;flex:none}
+  .dot{width:9px;height:9px;border-radius:50%;background:#c4c4c4;flex:none}
   .dot.live{background:#7fae8e;box-shadow:0 0 0 3px rgba(127,174,142,.15)}
   #status{font-size:12px;color:var(--sub)}
   #name{font-weight:600}
@@ -55,8 +55,8 @@
   #peers .sw{width:10px;height:10px;border-radius:3px;flex:none}
   #peers .me{font-weight:600;color:var(--tx)}
 
-  .overlay{position:fixed;inset:0;z-index:50;background:rgba(17,24,39,.35);display:none;align-items:center;justify-content:center}
-  .modal{background:var(--panel);border:1px solid var(--bd);border-radius:16px;box-shadow:0 20px 60px rgba(16,24,40,.25);
+  .overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center}
+  .modal{background:var(--panel);border:1px solid var(--bd);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);
     width:min(94vw,470px);max-height:84vh;overflow:auto;padding:22px}
   .modal h2{margin:0 0 4px;font-size:18px}
   .modal p{margin:0 0 16px;color:var(--sub);font-size:13px}
@@ -69,7 +69,7 @@
   .linkbtn:hover{text-decoration:underline}
   #setuppool{font-size:12px;color:var(--sub);font-weight:500}
   #setuppool:hover{color:var(--acc)}
-  #pickfolder{box-sizing:border-box;box-shadow:0 2px 8px rgba(20,22,26,.15)}
+  #pickfolder{box-sizing:border-box;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   #pickfolder:active{transform:translateY(1px)}
   #mclose:hover{color:var(--tx)}
   #modalfoot{margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);font-size:12px;color:var(--sub);
@@ -162,7 +162,7 @@
       <div class="slotgrid" id="slotgrid"></div>
     </div>
     <div id="modalfoot">
-      <span>Folder: <b id="folderName">none</b></span>
+      <span>Pool: <b id="folderName"></b></span>
       <button class="linkbtn" id="changefolder" style="display:none">Change folder</button>
     </div>
   </div>
@@ -451,7 +451,8 @@
   }
   function closeModal(){ homeView=false; document.getElementById('overlay').style.display='none'; if(window._lbPick){ clearInterval(window._lbPick); window._lbPick=null; } }
   function renderPicker(){
-    document.getElementById('folderName').textContent = dirHandle ? (dirHandle.name||'selected') : 'none';
+    document.getElementById('folderName').textContent = dirHandle ? (dirHandle.name||'selected') : '';
+    document.getElementById('modalfoot').style.display = dirHandle ? 'flex' : 'none';
     document.getElementById('changefolder').style.display = dirHandle ? 'inline' : 'none';
     document.getElementById('mclose').style.display = mySlot ? 'block' : 'none';
     var fp=document.getElementById('folderpick'), sw=document.getElementById('slotwrap');
@@ -491,10 +492,10 @@
   // Closing is explicit only (the ✕, shown once you have a seat) — a misclick on
   // the dark backdrop while typing a nick must not throw the user out.
   document.getElementById('mclose').addEventListener('click', function(){ if(mySlot) closeModal(); });
-  document.getElementById('pickfolder').addEventListener('click', function(){ homeView?pickFolderFresh(false):ensureFolder(); });
+  document.getElementById('pickfolder').addEventListener('click', function(){ pickFolderFresh(false); });   // always show the OS folder picker
   document.getElementById('setuppool').addEventListener('click', function(){ pickFolderFresh(true); });
   document.getElementById('changefolder').addEventListener('click', function(){ pickFolderFresh(false); });
-  document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 animals are busy right now.'); return; } tryJoin(fn); });
+  document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ pickFolderFresh(false); return; } var fn=firstFree(); if(!fn){ alert('All 20 animals are busy right now.'); return; } tryJoin(fn); });
   document.getElementById('nick').addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('joinfree').click(); } });
 
   function updatePeers(){
@@ -533,16 +534,16 @@
       var found=null; for(var fk in others){ (others[fk].objects||[]).some(function(o){ if(o.id===sel.id){ found=o; return true; } }); if(found) break; }
       sel=found;
     }
-    if(sel){ var own=selOwned(), b=bboxOf(sel); ctx.save(); ctx.strokeStyle=own?'#8a919c':'#6b7076'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
+    if(sel){ var own=selOwned(), b=bboxOf(sel); ctx.save(); ctx.strokeStyle=own?'#8c8c8c':'#707070'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
       ctx.strokeRect(b.x-6/view.s,b.y-6/view.s,b.w+12/view.s,b.h+12/view.s); ctx.setLineDash([]);
-      if(own && isBoxObj(sel)){ ctx.fillStyle='#8a919c'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
+      if(own && isBoxObj(sel)){ ctx.fillStyle='#8c8c8c'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
     ctx.restore();
     if(noteEd) styleNoteEd();   // keep the open note editor glued to its note on pan/zoom
   }
   function drawNote(o){
     var hidden=(noteEdObj===o);   // the textarea covers it while editing
     ctx.save();
-    ctx.fillStyle='rgba(16,24,40,.10)';
+    ctx.fillStyle='rgba(0,0,0,.10)';
     ctx.beginPath(); ctx.roundRect(o.x+3,o.y+4,o.w,o.h,6); ctx.fill();   // cheap drop shadow
     ctx.fillStyle=o.color||'#FEF08A';
     ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,6); ctx.fill();
@@ -649,7 +650,7 @@
       'background:'+(o.color||'#FEF08A')+';color:#1f2937;'+
       'border:1.5px solid rgba(0,0,0,.2);border-radius:'+(6*view.s)+'px;'+
       'padding:'+(10*view.s)+'px '+(10*view.s)+'px '+(26*view.s)+'px;font:'+(13*view.s)+'px/'+(17*view.s)+'px ui-sans-serif,system-ui,sans-serif;'+
-      'box-shadow:0 8px 20px rgba(16,24,40,.22)';
+      'box-shadow:0 8px 20px rgba(0,0,0,.22)';
   }
   function closeNoteEditor(commitIt){
     if(!noteEd) return;
