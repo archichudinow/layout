@@ -236,12 +236,16 @@
       for(var i=0;i<del.length;i++){ try{ await dirHandle.removeEntry(del[i]); }catch(e){} }
     }catch(e){}
   }
+  // seen must only ever increase for a seat, even across occupants with skewed
+  // clocks — every outgoing write goes through nextSeen().
+  var lastSeenOut=0;
+  function nextSeen(){ lastSeenOut=Math.max(Date.now(), lastSeenOut+1); return lastSeenOut; }
   async function writeMine(){
     if(!dirHandle||!mySlot) return;
     if(writing && Date.now()-writeStart < 15000){ writeAgain=true; return; }   // only block briefly; recover if a write hung
     writing=true; writeStart=Date.now();
     try{
-      var data={ slot:slotNum(mySlot), nick:me, seen:Date.now(), objects:mine };
+      var data={ slot:slotNum(mySlot), nick:me, seen:nextSeen(), objects:mine };
       // Each beat goes into a NEW generation file (slot-02.<ts>.json). The OS caches
       // file CONTENT per name, so a reader machine can be handed stale bytes forever
       // for a name it keeps re-reading — but never for a name it has never opened.
@@ -258,7 +262,9 @@
   async function freeSeat(seat){   // keep drawings, clear presence so the seat frees now
     seat=seat||mySlot;   // capture: callers may reassign mySlot before our awaits run
     if(!dirHandle||!seat) return;
-    try{ await writeSlotFile(seat, { slot:slotNum(seat), nick:'', seen:0, objects:mine }); }catch(e){}
+    // "free" is nick:'' with a FRESH seen — never seen:0, which readers would have
+    // to special-case and a stale cached skeleton could then impersonate.
+    try{ await writeSlotFile(seat, { slot:slotNum(seat), nick:'', seen:nextSeen(), objects:mine }); }catch(e){}
     lastGen=''; lastBaseWrite=0;
     await sweepGens(seat, null);
   }
@@ -272,8 +278,10 @@
         rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
       }catch(e){ continue; }   // partial / mid-write / just-deleted read: keep the last good copy
       var prev=slots[fn];
-      // a share's cache can replay an OLDER version; ignore backwards updates
-      if(prev && prev.seen>0 && rec.seen>0 && rec.seen < prev.seen) continue;
+      // Purely monotonic: NOTHING older ever applies. This is what stops a stale
+      // cached copy of the base file (e.g. the seen:0 skeleton) from wiping a seat
+      // we already read fresher data for — the flash-then-vanish bug.
+      if(prev && rec.seen < prev.seen) continue;
       slots[fn]=rec;
       // Optimistic presence on OUR clock: a claimed seat counts as online from the
       // moment we first read it, and stays online as long as we keep witnessing its
@@ -356,6 +364,9 @@
     try{ var h=await dirHandle.getFileHandle(fn); var f=await h.getFile(); var d=JSON.parse(await f.text());
       if(Array.isArray(d.objects) && (!best || (d.seen||0) >= (best.seen||0))) best={seen:d.seen||0, objects:d.objects}; }catch(e){}
     mine = JSON.parse(JSON.stringify(best ? (best.objects||[]) : []));
+    // Start our seen counter above the previous occupant's, so our writes are
+    // never ignored by readers even if our clock runs behind theirs.
+    lastSeenOut=Math.max(lastSeenOut, (best&&best.seen)||0);
     sweepGens(fn, null);   // clear a previous occupant's leftover generation files
     mine.forEach(function(o){ if(o.type==='image') getImg(imgKey(o)); });
     undoStack=[]; sel=null;
