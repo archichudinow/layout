@@ -126,8 +126,9 @@
     <h2 id="mtitle">Join the board</h2>
     <p id="mdesc">Select your project folder to begin.</p>
     <div id="folderpick" style="display:none">
-      <button class="btn primary" id="pickfolder" style="justify-content:center;width:100%;height:44px;font-size:14px">Select project folder</button>
-      <p class="mnote">Everyone opens the <b>same</b> project folder. Images are saved in its <b>assets</b> subfolder, and 20 seat files are created so everyone shows up immediately. Chrome or Edge.</p>
+      <button class="btn primary" id="pickfolder" style="justify-content:center;width:100%;height:44px;font-size:14px">Join — select the project folder</button>
+      <p class="mnote">Everyone opens the <b>same</b> project folder. If you’ve been here before, you’ll rejoin your seat automatically. Chrome or Edge.</p>
+      <p style="text-align:center;margin:10px 0 0"><button class="linkbtn" id="setuppool">Set up a new board in a folder…</button></p>
     </div>
     <div id="slotwrap" style="display:none">
       <div class="row" style="margin-bottom:12px">
@@ -349,11 +350,19 @@
       if(perm==='granted'){ dirHandle=h; await afterFolder(); return; } }catch(e){} }
     pickFolderFresh();
   }
-  async function pickFolderFresh(){   // always show the OS folder picker
+  // Always shows the OS folder picker. Join mode (default) expects an existing
+  // board and asks before scaffolding files into a folder that has none;
+  // setup mode creates the board structure without asking.
+  async function pickFolderFresh(setup){
     if(!window.showDirectoryPicker){ alert('Folder sync needs Chrome or Edge.'); return; }
     try{
       var d=await window.showDirectoryPicker({ mode:'readwrite', id:'localboard' });
       if(d.requestPermission){ var p=await d.requestPermission({mode:'readwrite'}); if(p!=='granted') return; }
+      if(setup!==true){
+        var has=false;
+        try{ for await (var e of d.values()){ if(e.kind==='file' && /^slot-\d+(\.\d+)?\.json$/i.test(e.name)){ has=true; break; } } }catch(e){}
+        if(!has && !confirm('“'+(d.name||'This folder')+'” has no board in it yet. Set one up here?')) return;
+      }
       dirHandle=d; assetsHandle=null; idbSet('dirHandle', d);
       observed={}; slots={}; others={};
       await afterFolder();
@@ -422,7 +431,7 @@
     var fp=document.getElementById('folderpick'), sw=document.getElementById('slotwrap');
     if(!dirHandle){ fp.style.display='block'; sw.style.display='none';
       document.getElementById('mtitle').textContent='Join the board';
-      document.getElementById('mdesc').textContent='Select the shared project folder — if you’ve been here before, you’ll rejoin your seat automatically.'; return; }
+      document.getElementById('mdesc').textContent='Join the shared project folder — or set up a new board with the link below.'; return; }
     fp.style.display='none'; sw.style.display='block';
     document.getElementById('mtitle').textContent='Enter your nick & take a seat';
     document.getElementById('mdesc').textContent='Seats with a name are taken. Pick a free one. A taken seat that goes idle can be taken over.';
@@ -456,7 +465,8 @@
   // the dark backdrop while typing a nick must not throw the user out.
   document.getElementById('mclose').addEventListener('click', function(){ if(mySlot) closeModal(); });
   document.getElementById('pickfolder').addEventListener('click', ensureFolder);
-  document.getElementById('changefolder').addEventListener('click', pickFolderFresh);
+  document.getElementById('setuppool').addEventListener('click', function(){ pickFolderFresh(true); });
+  document.getElementById('changefolder').addEventListener('click', function(){ pickFolderFresh(false); });
   document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 seats are busy right now.'); return; } tryJoin(fn); });
   document.getElementById('nick').addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('joinfree').click(); } });
 
