@@ -148,7 +148,7 @@
   "use strict";
   var canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
   var dpr=1, W=0, H=0;
-  var SLOTS=20, TTL=8000;
+  var SLOTS=20, TTL=12000;
 
   var me = localStorage.getItem('lb_nick') || '';
   var mySlot = localStorage.getItem('lb_slot') || '';   // 'slot-03.json'
@@ -167,7 +167,8 @@
   var view={ s:1, tx:0, ty:0 };
   var tool='select', color='#111827', width=3, sel=null;
   var imgCache={}, undoStack=[];
-  var dirHandle=null, assetsHandle=null, scanning=false, parsedCache={};
+  var dirHandle=null, assetsHandle=null, scanning=false;
+  var observed={};             // fileName -> {seen, nick, at, live} — presence tracked on OUR clock
 
   function allObjects(){ var out=mine.slice(); for(var fn in others) out=out.concat(others[fn].objects||[]); return out; }
 
@@ -237,16 +238,19 @@
       await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:'', seen:0, objects:mine })],{type:'application/json'})); await w.close(); }catch(e){}
   }
   async function readAll(){
-    var idx={};
+    var idx={}, now=Date.now();
     for await (var entry of dirHandle.values()){
       if(entry.kind!=='file') continue; var fn=entry.name, m=fn.match(/^slot-(\d+)\.json$/i); if(!m) continue;
-      try{
-        var f=await entry.getFile(), cached=parsedCache[fn];
-        if(cached && cached.lm===f.lastModified){ idx[fn]=cached.rec; continue; }
-        var d=JSON.parse(await f.text());
-        var rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
-        parsedCache[fn]={ lm:f.lastModified, rec:rec }; idx[fn]=rec;
-      }catch(e){ idx[fn]={ slot:+m[1], nick:'', seen:0, objects:[] }; }
+      var rec;
+      try{ var f=await entry.getFile(); var d=JSON.parse(await f.text());
+        rec={ slot:+m[1], nick:d.nick||'', seen:d.seen||0, objects:Array.isArray(d.objects)?d.objects:[] };
+      }catch(e){ rec={ slot:+m[1], nick:'', seen:0, objects:[] }; }
+      idx[fn]=rec;
+      // presence on OUR clock: a seat is live only once we *witness* its heartbeat change,
+      // so cross-machine clock differences can't make a live user look offline (or vice-versa).
+      var prev=observed[fn];
+      if(!prev){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:false }; }
+      else if(prev.seen!==rec.seen || prev.nick!==rec.nick){ observed[fn]={ seen:rec.seen, nick:rec.nick, at:now, live:true }; }
     }
     slots=idx;
     var o={}; for(var k in idx){ if(k!==mySlot) o[k]={ nick:idx[k].nick, objects:idx[k].objects }; } others=o;
@@ -283,13 +287,14 @@
       var d=await window.showDirectoryPicker({ mode:'readwrite', id:'localboard' });
       if(d.requestPermission){ var p=await d.requestPermission({mode:'readwrite'}); if(p!=='granted') return; }
       dirHandle=d; assetsHandle=null; idbSet('dirHandle', d);
-      parsedCache={}; slots={}; others={};
+      observed={}; slots={}; others={};
       await afterFolder();
     }catch(e){ /* cancelled */ }
   }
 
   // ---- join / seat ------------------------------------------------------
-  function isLive(fn){ var r=slots[fn]; return r && r.nick && (Date.now()-r.seen < TTL); }
+  function isLive(fn){ if(fn===mySlot) return true; var o=observed[fn];
+    return !!(o && o.live && o.nick && o.seen>0 && (Date.now()-o.at < TTL)); }
   function firstFree(){ for(var i=1;i<=SLOTS;i++){ var fn=slotName(i); if(!isLive(fn) || fn===mySlot) return fn; } return null; }
 
   function joinSlot(fn){
