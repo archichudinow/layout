@@ -121,7 +121,8 @@
 <div id="dbg" style="position:fixed;left:14px;bottom:12px;z-index:10;font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--sub);background:var(--panel);border:1px solid var(--bd);border-radius:8px;padding:5px 9px;box-shadow:var(--shadow);display:none"></div>
 
 <div class="overlay" id="overlay">
-  <div class="modal">
+  <div class="modal" style="position:relative">
+    <button id="mclose" title="Close" style="position:absolute;top:8px;right:10px;background:none;border:0;font-size:22px;line-height:1;color:var(--sub);cursor:pointer;display:none">&times;</button>
     <h2 id="mtitle">Join the board</h2>
     <p id="mdesc">Select your project folder to begin.</p>
     <div id="folderpick" style="display:none">
@@ -328,7 +329,18 @@
       }catch(e){}
     }
   }
-  async function afterFolder(){ await initPool(); await readAll(); renderPicker(); }
+  async function afterFolder(){ await initPool(); await readAll(); if(await tryAutoRejoin()) return; renderPicker(); }
+  // Returning user: remembered nick + seat, and the seat isn't claimed by someone
+  // else → rejoin silently with zero clicks. Otherwise fall through to the picker.
+  async function tryAutoRejoin(){
+    try{
+      var fn=localStorage.getItem('lb_slot'), nick=localStorage.getItem('lb_nick');
+      if(!dirHandle||!fn||!nick||!/^slot-\d+\.json$/i.test(fn)) return false;
+      var rec=slots[fn];
+      if(rec && rec.nick && rec.nick!==nick) return false;
+      me=nick; await joinSlot(fn); return true;
+    }catch(e){ return false; }
+  }
 
   async function ensureFolder(){   // reuse remembered handle if still granted, else pick
     var h=await idbGet('dirHandle');
@@ -406,16 +418,16 @@
   function renderPicker(){
     document.getElementById('folderName').textContent = dirHandle ? (dirHandle.name||'selected') : 'none';
     document.getElementById('changefolder').style.display = dirHandle ? 'inline' : 'none';
+    document.getElementById('mclose').style.display = mySlot ? 'block' : 'none';
     var fp=document.getElementById('folderpick'), sw=document.getElementById('slotwrap');
     if(!dirHandle){ fp.style.display='block'; sw.style.display='none';
       document.getElementById('mtitle').textContent='Join the board';
-      document.getElementById('mdesc').textContent='First, everyone selects the same project folder.'; return; }
+      document.getElementById('mdesc').textContent='Select the shared project folder — if you’ve been here before, you’ll rejoin your seat automatically.'; return; }
     fp.style.display='none'; sw.style.display='block';
     document.getElementById('mtitle').textContent='Enter your nick & take a seat';
     document.getElementById('mdesc').textContent='Seats with a name are taken. Pick a free one. A taken seat that goes idle can be taken over.';
-    var grid=document.getElementById('slotgrid'); grid.innerHTML='';
-    var IDLE=60000;
-    for(var i=1;i<=SLOTS;i++){ (function(i){
+    var IDLE=60000, grid=document.getElementById('slotgrid'), rows=[];
+    for(var i=1;i<=SLOTS;i++){
       var fn=slotName(i), rec=slots[fn]||{nick:'',objects:[]}, mineSlot=(fn===mySlot);
       var claimed=!!rec.nick, live=isLive(fn), items=(rec.objects||[]).length;
       var o=observed[fn], idle = claimed && !live && o && (Date.now()-o.at > IDLE);   // claimed but no heartbeat movement for a while
@@ -425,14 +437,24 @@
       else if(busy){ cls='busy'; label=rec.nick; }
       else if(idle){ cls='free'; label=rec.nick+' · idle, take over'; }
       else { cls='free'; label=(items?items+' items':'free'); }
-      var cell=document.createElement('button'); cell.className='slotcell '+cls; cell.disabled=!!busy;
-      cell.innerHTML='<span class="n">Seat '+i+(live&&!mineSlot?' •':'')+'</span><span class="who">'+
-        ((claimed||mineSlot)?'<span class="sw" style="background:'+hueColor(rec.nick||me)+'"></span>':'')+label+'</span>';
-      if(!busy) cell.addEventListener('click', function(){ if(idle && !confirm('Seat '+i+' was used by "'+rec.nick+'" but looks idle. Take it over?')) return; tryJoin(fn); });
+      rows.push({ i:i, fn:fn, cls:cls, label:label, busy:busy, idle:idle, live:live, mineSlot:mineSlot, claimed:claimed, nick:rec.nick });
+    }
+    // Rebuild only when something actually changed — the 1.5s refresh must not
+    // recreate buttons under the user's cursor (shifting cells / eaten clicks).
+    var sig=JSON.stringify(rows);
+    if(grid.dataset.sig===sig) return;
+    grid.dataset.sig=sig; grid.innerHTML='';
+    rows.forEach(function(r){
+      var cell=document.createElement('button'); cell.className='slotcell '+r.cls; cell.disabled=!!r.busy;
+      cell.innerHTML='<span class="n">Seat '+r.i+(r.live&&!r.mineSlot?' •':'')+'</span><span class="who">'+
+        ((r.claimed||r.mineSlot)?'<span class="sw" style="background:'+hueColor(r.nick||me)+'"></span>':'')+r.label+'</span>';
+      if(!r.busy) cell.addEventListener('click', function(){ if(r.idle && !confirm('Seat '+r.i+' was used by "'+r.nick+'" but looks idle. Take it over?')) return; tryJoin(r.fn); });
       grid.appendChild(cell);
-    })(i); }
+    });
   }
-  document.getElementById('overlay').addEventListener('click', function(e){ if(e.target.id==='overlay' && mySlot) closeModal(); });
+  // Closing is explicit only (the ✕, shown once you have a seat) — a misclick on
+  // the dark backdrop while typing a nick must not throw the user out.
+  document.getElementById('mclose').addEventListener('click', function(){ if(mySlot) closeModal(); });
   document.getElementById('pickfolder').addEventListener('click', ensureFolder);
   document.getElementById('changefolder').addEventListener('click', pickFolderFresh);
   document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 seats are busy right now.'); return; } tryJoin(fn); });
@@ -566,7 +588,8 @@
     try{
       var h=await idbGet('dirHandle');
       if(h){ var perm=h.queryPermission?await h.queryPermission({mode:'readwrite'}):'granted';
-        if(perm==='granted'){ dirHandle=h; try{ await initPool(); await readAll(); }catch(e){} } }
+        if(perm==='granted'){ dirHandle=h; try{ await initPool(); await readAll(); }catch(e){}
+          if(await tryAutoRejoin()) return; } }   // returning user: straight onto the board
     }catch(e){}
     openSeatPicker();
   })();
