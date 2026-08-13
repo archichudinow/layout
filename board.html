@@ -7,14 +7,14 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%232563eb'/%3E%3Cpath d='M12 38c5-6 11-6 16 0s11 6 16 0' stroke='white' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M12 48c5-6 11-6 16 0s11 6 16 0' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' opacity='.6'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#f4f5f7; --panel:#ffffff; --bd:#e5e7eb; --tx:#1a1a1e; --sub:#6b7280;
-    --acc:#2563eb; --acc-soft:#e8effe; --shadow:0 2px 10px rgba(16,24,40,.10);
-    --dotgrid:#d7dae1; --hover:#f1f2f4; --cell:#ffffff; --cellbusy:#f9fafb; --freetx:#3730a3;
+    --bg:#f2f3f4; --panel:#fbfbfc; --bd:#e3e4e7; --tx:#3f434a; --sub:#8b9099;
+    --acc:#5c6470; --acc-soft:#e9eaed; --shadow:0 2px 10px rgba(20,22,26,.06);
+    --dotgrid:#e2e3e6; --hover:#ececef; --cell:#f7f7f9; --cellbusy:#f0f1f2; --freetx:#6a707b;
   }
   [data-theme="dark"]{
-    --bg:#15171c; --panel:#1f232b; --bd:#333a45; --tx:#e6e8ec; --sub:#9aa3b2;
-    --acc:#5b8cff; --acc-soft:#26314a; --shadow:0 2px 10px rgba(0,0,0,.45);
-    --dotgrid:#262b34; --hover:#2a303a; --cell:#232833; --cellbusy:#1c2129; --freetx:#a5b4fc;
+    --bg:#17191d; --panel:#1d2025; --bd:#282c33; --tx:#b9bec6; --sub:#767d88;
+    --acc:#8b939f; --acc-soft:#262a31; --shadow:0 2px 10px rgba(0,0,0,.3);
+    --dotgrid:#1f2227; --hover:#252930; --cell:#212429; --cellbusy:#1b1e23; --freetx:#8b939f;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;
@@ -32,15 +32,15 @@
     height:34px;min-width:34px;padding:0 10px;border-radius:8px;font-size:13px;color:var(--tx);white-space:nowrap}
   .btn:hover{background:var(--hover)}
   .btn.on{background:var(--acc-soft);color:var(--acc)}
-  .btn.primary{background:var(--acc);color:#fff}
-  .btn.primary:hover{background:#1d4fd7}
+  .btn.primary{background:var(--acc);color:var(--panel)}
+  .btn.primary:hover{filter:brightness(1.08)}
   .btn svg{width:18px;height:18px;pointer-events:none}
   .sep{width:1px;height:24px;background:var(--bd);margin:0 2px}
   input[type=color]{width:30px;height:30px;border:none;background:none;padding:0;cursor:pointer;border-radius:8px}
   input[type=range]{width:88px}
   input[type=text]{border:1px solid var(--bd);border-radius:9px;padding:9px 11px;font-size:14px}
   .dot{width:9px;height:9px;border-radius:50%;background:#c7ccd4;flex:none}
-  .dot.live{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  .dot.live{background:#7fae8e;box-shadow:0 0 0 3px rgba(127,174,142,.15)}
   #status{font-size:12px;color:var(--sub)}
   #name{font-weight:600}
   .chip{display:none;align-items:center;gap:7px;height:34px;padding:0 10px;border-radius:8px;
@@ -63,11 +63,13 @@
   .modal .row{display:flex;gap:8px}
   .modal input[type=text]{flex:1}
   .mnote{color:var(--sub);font-size:12px;margin:10px 0 0}
+  #folderpick{text-align:center}
+  body.nojoin #tools,body.nojoin #left,body.nojoin #right,body.nojoin #peers{display:none}
   .linkbtn{all:unset;cursor:pointer;color:var(--acc);font-weight:600}
   .linkbtn:hover{text-decoration:underline}
   #setuppool{font-size:12px;color:var(--sub);font-weight:500}
   #setuppool:hover{color:var(--acc)}
-  #pickfolder{box-shadow:0 2px 8px rgba(37,99,235,.25)}
+  #pickfolder{box-sizing:border-box;box-shadow:0 2px 8px rgba(20,22,26,.15)}
   #pickfolder:active{transform:translateY(1px)}
   #mclose:hover{color:var(--tx)}
   #modalfoot{margin-top:16px;padding-top:12px;border-top:1px solid var(--bd);font-size:12px;color:var(--sub);
@@ -85,7 +87,7 @@
   .slotcell.free .who{color:var(--freetx)}
 </style>
 </head>
-<body>
+<body class="nojoin">
 <canvas id="canvas"></canvas>
 
 <div class="bar" id="left">
@@ -182,6 +184,8 @@
   function uid(){ return Date.now().toString(36)+'-'+Math.floor(Math.random()*1e6).toString(36); }
   function pad2(n){ return ('0'+n).slice(-2); }
   function slotName(i){ return 'slot-'+pad2(i)+'.json'; }
+  var ANIMALS=['Fox','Owl','Bear','Lynx','Otter','Wolf','Hare','Moose','Panda','Koala','Tiger','Whale','Eagle','Robin','Crane','Gecko','Bison','Heron','Dolphin','Falcon'];
+  function seatAnimal(x){ var n=typeof x==='number'?x:slotNum(x); return ANIMALS[(n-1)%ANIMALS.length]||('Seat '+n); }
   function slotNum(fn){ var m=(fn||'').match(/(\d+)/); return m?+m[1]:0; }
   function hueColor(u){ u=u||'?'; var h=0; for(var i=0;i<u.length;i++) h=(h*31+u.charCodeAt(i))%360; return 'hsl('+h+' 65% 52%)'; }
 
@@ -414,6 +418,7 @@
     mine.forEach(function(o){ if(o.type==='image') getImg(imgKey(o)); });
     undoStack=[]; sel=null;
     var o={}; for(var k in slots){ if(k!==fn) o[k]={ nick:slots[k].nick, objects:slots[k].objects }; } others=o;
+    document.body.classList.remove('nojoin');
     updateChip(); document.getElementById('name').textContent=me;
     saveLocal(); render(); updatePeers(); startSync(); closeModal();
   }
@@ -426,12 +431,12 @@
   }
   function updateChip(){
     var sw=document.querySelector('#chanchip .sw'); if(sw) sw.style.background=hueColor(me);
-    document.getElementById('channame').textContent='Seat '+slotNum(mySlot);
+    document.getElementById('channame').textContent=seatAnimal(mySlot);
     document.getElementById('chanchip').style.display='inline-flex';
   }
   function startSync(){
     document.getElementById('syncdot').classList.add('live');
-    document.getElementById('status').textContent='seat '+slotNum(mySlot)+' · '+me;
+    document.getElementById('status').textContent=seatAnimal(mySlot)+' · '+me;
     if(!window._lbPoll) window._lbPoll=setInterval(syncNow, 1500);
     if(!window._lbBeat) window._lbBeat=setInterval(writeMine, 4000);
     writeMine();
@@ -455,8 +460,8 @@
       document.getElementById('mtitle').textContent=homeView?'Pools':'Join the pool';
       document.getElementById('mdesc').textContent='Everyone joins the same shared project folder (the pool).'; return; }
     fp.style.display='none'; sw.style.display='block';
-    document.getElementById('mtitle').textContent='Enter your nick & take a seat';
-    document.getElementById('mdesc').textContent='Seats with a name are taken. Pick a free one. A taken seat that goes idle can be taken over.';
+    document.getElementById('mtitle').textContent='Enter your nick & pick your animal';
+    document.getElementById('mdesc').textContent='Animals with a name are taken. Pick a free one — an idle one can be taken over.';
     var IDLE=60000, grid=document.getElementById('slotgrid'), rows=[];
     for(var i=1;i<=SLOTS;i++){
       var fn=slotName(i), rec=slots[fn]||{nick:'',objects:[]}, mineSlot=(fn===mySlot);
@@ -477,9 +482,9 @@
     grid.dataset.sig=sig; grid.innerHTML='';
     rows.forEach(function(r){
       var cell=document.createElement('button'); cell.className='slotcell '+r.cls; cell.disabled=!!r.busy;
-      cell.innerHTML='<span class="n">Seat '+r.i+(r.live&&!r.mineSlot?' •':'')+'</span><span class="who">'+
+      cell.innerHTML='<span class="n">'+seatAnimal(r.i)+(r.live&&!r.mineSlot?' •':'')+'</span><span class="who">'+
         ((r.claimed||r.mineSlot)?'<span class="sw" style="background:'+hueColor(r.nick||me)+'"></span>':'')+r.label+'</span>';
-      if(!r.busy) cell.addEventListener('click', function(){ if(r.idle && !confirm('Seat '+r.i+' was used by "'+r.nick+'" but looks idle. Take it over?')) return; tryJoin(r.fn); });
+      if(!r.busy) cell.addEventListener('click', function(){ if(r.idle && !confirm(seatAnimal(r.i)+' was used by "'+r.nick+'" but looks idle. Take it over?')) return; tryJoin(r.fn); });
       grid.appendChild(cell);
     });
   }
@@ -489,7 +494,7 @@
   document.getElementById('pickfolder').addEventListener('click', function(){ homeView?pickFolderFresh(false):ensureFolder(); });
   document.getElementById('setuppool').addEventListener('click', function(){ pickFolderFresh(true); });
   document.getElementById('changefolder').addEventListener('click', function(){ pickFolderFresh(false); });
-  document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 seats are busy right now.'); return; } tryJoin(fn); });
+  document.getElementById('joinfree').addEventListener('click', function(){ if(!dirHandle){ ensureFolder(); return; } var fn=firstFree(); if(!fn){ alert('All 20 animals are busy right now.'); return; } tryJoin(fn); });
   document.getElementById('nick').addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('joinfree').click(); } });
 
   function updatePeers(){
@@ -500,7 +505,7 @@
     if(!seats.length){ box.style.display='none'; return; }
     var html='<b>'+seats.length+'</b> on this board';
     seats.forEach(function(fn){ var mineSeat=(fn===mySlot), nick=(slots[fn]&&slots[fn].nick)||(mineSeat?me:'?'), live=isLive(fn)||mineSeat;
-      html+='<div class="pw'+(mineSeat?' me':'')+'"><span class="sw" style="background:'+hueColor(nick)+';opacity:'+(live?1:.4)+'"></span>Seat '+slotNum(fn)+' · '+nick+(mineSeat?' (you)':(live?'':' · idle'))+'</div>'; });
+      html+='<div class="pw'+(mineSeat?' me':'')+'"><span class="sw" style="background:'+hueColor(nick)+';opacity:'+(live?1:.4)+'"></span>'+seatAnimal(fn)+' · '+nick+(mineSeat?' (you)':(live?'':' · idle'))+'</div>'; });
     box.innerHTML=html; box.style.display='block';
   }
 
@@ -528,9 +533,9 @@
       var found=null; for(var fk in others){ (others[fk].objects||[]).some(function(o){ if(o.id===sel.id){ found=o; return true; } }); if(found) break; }
       sel=found;
     }
-    if(sel){ var own=selOwned(), b=bboxOf(sel); ctx.save(); ctx.strokeStyle=own?'#2563eb':'#9ca3af'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
+    if(sel){ var own=selOwned(), b=bboxOf(sel); ctx.save(); ctx.strokeStyle=own?'#8a919c':'#6b7076'; ctx.lineWidth=1.5/view.s; ctx.setLineDash([6/view.s,4/view.s]);
       ctx.strokeRect(b.x-6/view.s,b.y-6/view.s,b.w+12/view.s,b.h+12/view.s); ctx.setLineDash([]);
-      if(own && isBoxObj(sel)){ ctx.fillStyle='#2563eb'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
+      if(own && isBoxObj(sel)){ ctx.fillStyle='#8a919c'; var hs=8/view.s; ctx.fillRect(sel.x+sel.w-hs/2, sel.y+sel.h-hs/2, hs, hs); } ctx.restore(); }
     ctx.restore();
     if(noteEd) styleNoteEd();   // keep the open note editor glued to its note on pan/zoom
   }
