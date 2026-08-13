@@ -149,7 +149,7 @@
   "use strict";
   var canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
   var dpr=1, W=0, H=0;
-  var SLOTS=20, TTL=12000;
+  var SLOTS=20, TTL=30000;   // presence window wide enough to survive bursty LAN/cloud propagation
 
   var me = localStorage.getItem('lb_nick') || '';
   var mySlot = localStorage.getItem('lb_slot') || '';   // 'slot-03.json'
@@ -171,6 +171,7 @@
   var dirHandle=null, assetsHandle=null, scanning=false;
   var observed={};             // fileName -> {seen, nick, at, live} — presence tracked on OUR clock
   var lastWrite={t:0,ok:true}, lastReadAt=0, DEBUG=true;
+  var writeStart=0, scanStart=0, lastReadErr='';   // watchdog timers so a hung network call can't lock sync
 
   function allObjects(){ var out=mine.slice(); for(var fn in others) out=out.concat(others[fn].objects||[]); return out; }
 
@@ -225,8 +226,8 @@
   function scheduleWrite(){ if(!dirHandle||!mySlot) return; clearTimeout(writeTimer); writeTimer=setTimeout(writeMine, 500); }
   async function writeMine(){
     if(!dirHandle||!mySlot) return;
-    if(writing){ writeAgain=true; return; }
-    writing=true;
+    if(writing && Date.now()-writeStart < 15000){ writeAgain=true; return; }   // only block briefly; recover if a write hung
+    writing=true; writeStart=Date.now();
     try{
       var h=await dirHandle.getFileHandle(mySlot, {create:true}); var w=await h.createWritable();
       await w.write(new Blob([JSON.stringify({ slot:slotNum(mySlot), nick:me, seen:Date.now(), objects:mine })],{type:'application/json'}));
@@ -259,16 +260,18 @@
     return idx;
   }
   async function syncNow(){
-    if(!dirHandle||scanning) return; scanning=true;
-    try{ await readAll(); lastReadAt=Date.now(); render(); updatePeers(); updateDbg(); if(document.getElementById('overlay').style.display==='flex') renderPicker(); flashSync(); }
-    catch(e){ console.warn('sync failed', e); } finally{ scanning=false; }
+    if(!dirHandle) return;
+    if(scanning && Date.now()-scanStart < 15000) return;   // recover if a previous read hung on the share
+    scanning=true; scanStart=Date.now();
+    try{ await readAll(); lastReadAt=Date.now(); lastReadErr=''; render(); updatePeers(); updateDbg(); if(document.getElementById('overlay').style.display==='flex') renderPicker(); flashSync(); }
+    catch(e){ lastReadErr=(e&&e.name)||'err'; updateDbg(); console.warn('sync failed', e); } finally{ scanning=false; }
   }
   function updateDbg(){
     if(!DEBUG) return; var d=document.getElementById('dbg'); if(!d) return;
     var n=0,live=0,oth=0; for(var k in slots){ n++; if(isLive(k)) live++; if(k!==mySlot) oth+=((slots[k].objects||[]).length); }
     var age=function(t){ return t?((Date.now()-t)/1000).toFixed(1)+'s':'—'; };
     d.style.display='block';
-    d.textContent='slots '+n+' · live '+live+' · mine '+mine.length+'it · others '+oth+'it · read '+age(lastReadAt)+' · write '+(lastWrite.ok?'ok':('ERR '+(lastWrite.e||'')))+' '+age(lastWrite.t);
+    d.textContent='slots '+n+' · live '+live+' · mine '+mine.length+'it · others '+oth+'it · read '+age(lastReadAt)+(lastReadErr?(' ERR '+lastReadErr):'')+' · write '+(lastWrite.ok?'ok':('ERR '+(lastWrite.e||'')))+' '+age(lastWrite.t);
   }
 
   // create the assets folder + 20 seat files if missing
@@ -332,8 +335,8 @@
   function startSync(){
     document.getElementById('syncdot').classList.add('live');
     document.getElementById('status').textContent='seat '+slotNum(mySlot)+' · '+me;
-    if(!window._lbPoll) window._lbPoll=setInterval(syncNow, 1000);
-    if(!window._lbBeat) window._lbBeat=setInterval(writeMine, 3000);
+    if(!window._lbPoll) window._lbPoll=setInterval(syncNow, 1500);
+    if(!window._lbBeat) window._lbBeat=setInterval(writeMine, 4000);
     writeMine();
   }
   function flashSync(){ var d=document.getElementById('syncdot'); d.style.transform='scale(1.5)'; setTimeout(function(){ d.style.transform='scale(1)'; },120); }
