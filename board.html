@@ -536,7 +536,7 @@
     ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,6); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1/view.s; ctx.stroke();
     if(o.text && !hidden){
-      ctx.beginPath(); ctx.rect(o.x+8,o.y+8,o.w-16,o.h-16); ctx.clip();
+      ctx.beginPath(); ctx.rect(o.x+8,o.y+8,o.w-16,o.h-(o.author?32:16)); ctx.clip();
       ctx.fillStyle='#1f2937'; ctx.font='13px ui-sans-serif,system-ui,sans-serif'; ctx.textBaseline='top';
       var lh=17, ty=o.y+10, maxW=o.w-20;
       o.text.split('\n').forEach(function(para){
@@ -548,6 +548,15 @@
         }
         ctx.fillText(line,o.x+10,ty); ty+=lh;
       });
+    }
+    if(o.author){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(o.x+2,o.y+o.h-22,o.w-4,20); ctx.clip();
+      ctx.fillStyle=hueColor(o.author);
+      ctx.beginPath(); ctx.roundRect(o.x+10,o.y+o.h-18,8,8,2); ctx.fill();
+      ctx.fillStyle='rgba(31,41,55,.6)'; ctx.font='10px ui-sans-serif,system-ui,sans-serif'; ctx.textBaseline='top';
+      ctx.fillText(o.author,o.x+23,o.y+o.h-18.5);
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -573,7 +582,7 @@
     if(spaceDown||tool==='pan'||e.button===1){ mode='pan'; last=s; canvas.style.cursor='grabbing'; return; }
     if(tool==='pen'){ if(!mySlot){ openSeatPicker(); return; } mode='draw'; cur={id:uid(),type:'stroke',color:color,width:width,pts:[[w.x,w.y]]}; return; }
     if(tool==='note'){ if(!mySlot){ openSeatPicker(); return; }
-      var note={ id:uid(), type:'note', x:w.x-85, y:w.y-60, w:170, h:120, text:'', color:STICKY[stickyIdx++%STICKY.length] };
+      var note={ id:uid(), type:'note', x:w.x-85, y:w.y-60, w:170, h:120, text:'', color:STICKY[stickyIdx++%STICKY.length], author:me };
       snapshot(); mine.push(note); commit(); setTool('select'); sel=note; render(); openNoteEditor(note); return; }
     if(sel&&hitHandle(sel,w)){ mode='resize'; snapshot(); dragStart={w:w,ow:sel.w,oh:sel.h}; return; }
     var hit=hitTest(w);
@@ -622,7 +631,7 @@
       'width:'+(o.w*view.s)+'px;height:'+(o.h*view.s)+'px;'+
       'background:'+(o.color||'#FEF08A')+';color:#1f2937;'+
       'border:1.5px solid rgba(0,0,0,.2);border-radius:'+(6*view.s)+'px;'+
-      'padding:'+(10*view.s)+'px;font:'+(13*view.s)+'px/'+(17*view.s)+'px ui-sans-serif,system-ui,sans-serif;'+
+      'padding:'+(10*view.s)+'px '+(10*view.s)+'px '+(26*view.s)+'px;font:'+(13*view.s)+'px/'+(17*view.s)+'px ui-sans-serif,system-ui,sans-serif;'+
       'box-shadow:0 8px 20px rgba(16,24,40,.22)';
   }
   function closeNoteEditor(commitIt){
