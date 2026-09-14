@@ -12,10 +12,11 @@
 
 A floating, draggable side column for the **ReImaginarium — The Tools** page.
 It's a **layout-only** helper: it adds its own prompt textarea and mirrors what
-you type into the real prompt field (`#positivePrompt textarea`) using React's
-native value setter, then clicks the real **Generate** button
-(`#generate-button`). It never moves or edits any React-owned element, so it
-can't break the app — closing it leaves the page exactly as before.
+you type into the real prompt field (`#prompt textarea`, with a fallback to the
+older `#positivePrompt textarea`) using React's native value setter, then clicks
+the real **Generate** button (`#generate-button`). It never moves or edits any
+React-owned element, so it can't break the app — closing it leaves the page
+exactly as before.
 
 ### Files
 - `prompt-sidebar-bookmarklet.js` — readable, annotated source.

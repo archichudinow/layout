@@ -3,9 +3,9 @@
  * -----------------------------------------------------------------
  * Adds a small, draggable, resizable floating column with its OWN prompt
  * text field. Whatever you type is pushed into the real prompt textarea
- * (#positivePrompt textarea) using React's native value setter + an `input`
- * event, so the app's state stays in sync. A "Generate" button clicks the
- * page's real #generate-button.
+ * (#prompt textarea — older builds used #positivePrompt) using React's native
+ * value setter + an `input` event, so the app's state stays in sync. A
+ * "Generate" button clicks the page's real #generate-button.
  *
  * It never moves or mutates any React-owned node, so it can't break the app —
  * it only overlays a panel on top. Run the bookmarklet again to remove it.
@@ -20,7 +20,7 @@
   var existing = document.getElementById(PANEL_ID);
   if (existing) { existing.remove(); return; }
 
-  var ORIG_PROMPT = '#positivePrompt textarea';
+  var ORIG_PROMPT = '#prompt textarea, #positivePrompt textarea';
   var ORIG_GENERATE = '#generate-button';
 
   var dark = document.documentElement.classList.contains('dark') ||
