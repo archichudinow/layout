@@ -36,3 +36,28 @@ exactly as before.
 4. Type; text syncs to the real field. Press **Generate** or `Ctrl/⌘ + Enter`.
 5. `↻` pulls the page's current text into the panel. Click the bookmark again
    (or **✕**) to close. Position and size are remembered.
+
+### When the Tools page changes under it
+
+The Tools app is a third party and gets redeployed; it has already renamed the
+prompt wrapper once (`positivePrompt` → `prompt`), which broke the panel
+*silently* — text went nowhere and **Generate** looked dead.
+
+So nothing is assumed any more. A status strip along the bottom of the panel
+reports the link, and tells the failures apart:
+
+| What happened | What the panel does |
+| --- | --- |
+| Selectors match | Quiet `● Linked to the page prompt field` |
+| Prompt id renamed, page has exactly one textarea | Binds to it and **keeps working**, with an amber warning naming the selector that missed |
+| Prompt id renamed, page ambiguous (several textareas, or none) | Refuses to guess, red message saying how many it found |
+| Value written but the app overwrote it | Red message — the app's *input handling* changed, which a selector check alone would not catch |
+| Generate button missing | Red message quoting the selector that missed |
+| Generate button present but still disabled | Red message — the click would be swallowed, so it is not pretended to have been sent |
+
+The `ⓘ` header button writes a full report to the browser console (selectors,
+what resolved, the live elements), also callable as `__promptPanel.dump()`.
+Set `DEBUG = false` in the source to keep the strip but silence the console.
+
+Because of the single-textarea fallback, the next rename of that kind will
+warn rather than break.
